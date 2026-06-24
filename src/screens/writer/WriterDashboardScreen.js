@@ -1,163 +1,5 @@
-// // screens/writer/WriterDashboardScreen.js
-// import React, { useState, useCallback } from 'react';
-// import {
-//   View,
-//   Text,
-//   ScrollView,
-//   StyleSheet,
-//   TouchableOpacity,
-//   RefreshControl,
-//   ActivityIndicator,
-//   Alert,
-// } from 'react-native';
-// import { SafeAreaView } from 'react-native-safe-area-context';
-// import { useFocusEffect } from '@react-navigation/native';
-// import { useAuth } from '../../contexts/AuthContext';
-// import ApiService from '../../services/ApiService';
-
-// const WriterDashboardScreen = ({ navigation }) => {
-//   const { user } = useAuth();
-//   const [refreshing, setRefreshing] = useState(false);
-//   const [isLoading, setIsLoading] = useState(true);
-  
-//   // Stats data
-//   const [stats, setStats] = useState({
-//     totalStories: 0,
-//     totalViews: 0,
-//     totalLikes: 0,
-//     totalEarnings: 0,
-//     thisMonthEarnings: 0,
-//   });
-
-//   // Recent stories data
-//   const [recentStories, setRecentStories] = useState([]);
-
-//   useFocusEffect(
-//     useCallback(() => {
-//       loadDashboardData();
-//     }, [])
-//   );
-
-//   const loadDashboardData = async (isRefresh = false) => {
-//     if (isRefresh) {
-//       setRefreshing(true);
-//     } else {
-//       setIsLoading(true);
-//     }
-
-//     try {
-//       // Load writer's stories (recent 5)
-//       const storiesResult = await ApiService.getWriterStories({ per_page: 5 });
-//       if (storiesResult.success) {
-//         const stories = storiesResult.data.data || [];
-//         setRecentStories(stories);
-        
-//         // Calculate stats from stories
-//         const totalStories = storiesResult.data.total || stories.length;
-//         const totalViews = stories.reduce((sum, story) => sum + (story.views_count || 0), 0);
-//         const totalLikes = stories.reduce((sum, story) => sum + (story.likes_count || 0), 0);
-        
-//         // Mock earnings calculation (you'll implement real earnings in Chunk 8)
-//         const totalEarnings = totalViews * 0.10; // Mock: ₹0.10 per view
-//         const thisMonthEarnings = totalEarnings * 0.3; // Mock: 30% this month
-        
-//         setStats({
-//           totalStories,
-//           totalViews,
-//           totalLikes,
-//           totalEarnings,
-//           thisMonthEarnings,
-//         });
-//       }
-//     } catch (error) {
-//       console.error('Error loading dashboard data:', error);
-//       Alert.alert('Error', 'Failed to load dashboard data');
-//     } finally {
-//       setIsLoading(false);
-//       setRefreshing(false);
-//     }
-//   };
-
-//   const handleCreateStory = () => {
-//     navigation.navigate('CreateEditStory');
-//   };
-
-//   const handleStoryPress = (story) => {
-//     navigation.navigate('StoryPreview', { story });
-//   };
-
-//   const handleViewAllStories = () => {
-//     navigation.navigate('MyStories');
-//   };
-
-//   const formatCurrency = (amount) => {
-//     return `₹${parseFloat(amount).toFixed(2)}`;
-//   };
-
-//   const getStatusColor = (status) => {
-//     switch (status) {
-//       case 'published':
-//         return '#4caf50';
-//       case 'draft':
-//         return '#ff9800';
-//       case 'pending':
-//         return '#2196f3';
-//       default:
-//         return '#666';
-//     }
-//   };
-
-//   const formatDate = (dateString) => {
-//     return new Date(dateString).toLocaleDateString('en-IN', {
-//       day: 'numeric',
-//       month: 'short',
-//     });
-//   };
-
-//   if (isLoading && !refreshing) {
-//     return (
-//       <SafeAreaView style={styles.container}>
-//         <View style={styles.loadingContainer}>
-//           <ActivityIndicator size="large" color="#007AFF" />
-//           <Text style={styles.loadingText}>Loading dashboard...</Text>
-//         </View>
-//       </SafeAreaView>
-//     );
-//   }
-
-//   return (
-//     <SafeAreaView style={styles.container}>
-//       <ScrollView
-//         refreshControl={
-//           <RefreshControl refreshing={refreshing} onRefresh={() => loadDashboardData(true)} />
-//         }
-//       >
-//         {/* Header */}
-//         <View style={styles.header}>
-//           <Text style={styles.greeting}>
-//             Welcome back, {user?.name || 'Writer'}! ✍️
-//           </Text>
-//           <Text style={styles.subtitle}>Your writing dashboard</Text>
-//         </View>
-
-//         {/* Quick Actions */}
-//         <View style={styles.actionsContainer}>
-//           <TouchableOpacity
-//             style={styles.createButton}
-//             onPress={handleCreateStory}
-//           >
-//             <Text style={styles.createButtonText}>+ Create New Story</Text>
-//           </TouchableOpacity>
-//         </View>
-
-//         {/* Stats Cards */}
-//         <View style={styles.statsContainer}>
-//           <View style={styles.statsRow}>
-//             <View style={styles.statCard}>
-//               <Text style={styles.statNumber}>{stats.totalStories}</Text>
-//               <Text style={styles
-              // screens/writer/WriterDashboardScreen.js
-import React, { useState } from 'react';
+// screens/writer/WriterDashboardScreen.js
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -167,387 +9,372 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import Feather from 'react-native-vector-icons/Feather';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigation } from '@react-navigation/native';
-const WriterDashboardScreen = () => {
-  const { user } = useAuth();
-  const [refreshing, setRefreshing] = useState(false);
-    const navigation = useNavigation();
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import apiService from '../../services/apiService';
+import { useLanguage } from '../../contexts/LanguageContext';
+import MyStoriesScreen from './MyStoriesScreen';
 
-  // Mock data for writer stats (you'll replace this with API calls in Chunk 8)
-  const [stats] = useState({
-    totalStories: 5,
-    totalViews: 1250,
-    totalLikes: 89,
-    totalEarnings: 125.50,
-    thisMonthEarnings: 45.25,
+const WriterDashboardScreen = () => {
+  const { t } = useLanguage();
+  const { user } = useAuth();
+  const navigation = useNavigation();
+  const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [stats, setStats] = useState({
+    totalStories: 0,
+    totalViews: 0,
+    totalLikes: 0,
+    followers: 0,
   });
 
-  // Mock data for writer's stories (you'll replace this with API calls in Chunk 4)
-  const [myStories] = useState([
-    {
-      id: 1,
-      title: 'The Midnight Adventure',
-      status: 'published',
-      views: 456,
-      likes: 42,
-      earnings: 35.75,
-      created_at: '2024-01-15',
-    },
-    {
-      id: 2,
-      title: 'Love in the Digital Age',
-      status: 'published',
-      views: 234,
-      likes: 28,
-      earnings: 18.50,
-      created_at: '2024-01-10',
-    },
-    {
-      id: 3,
-      title: 'The Unfinished Symphony',
-      status: 'draft',
-      views: 0,
-      likes: 0,
-      earnings: 0,
-      created_at: '2024-01-20',
-    },
-  ]);
+  const fetchUnreadCount = async () => {
+    try {
+      const result = await apiService.getUnreadNotificationsCount();
+      if (result.success) {
+        setUnreadCount(result.data?.count ?? 0);
+      }
+    } catch (e) {
+      console.error("fetchUnreadCount error:", e);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadCount();
+    }, [])
+  );
+
+  const loadStats = useCallback(async () => {
+    if (!user?.id) return;
+    const result = await apiService.getUserProfile(user.id);
+    if (result.success) {
+      setStats({
+        totalStories: result.data.stories_count ?? 0,
+        totalViews: result.data.total_views ?? 0,
+        totalLikes: result.data.total_likes ?? 0,
+        followers: result.data.followers_count ?? 0,
+      });
+    }
+  }, [user?.id]);
+
+  useEffect(() => { loadStats(); }, [loadStats]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // TODO: Fetch latest stats and stories from API
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 2000);
+    await loadStats();
+    await fetchUnreadCount();
+    setRefreshing(false);
   };
 
-  const handleCreateStory = () => {
-    navigation.navigate('CreateEditStory'); // Replace 'CreateStory' with your actual screen name
-    console.log('Create new story');
-  };
-    const handleMyStory = () => {
-    navigation.navigate('MyStories'); // Replace 'MyStories' with your actual screen name
-    console.log('MyStories');
-  };
-
-
-  const handleStoryPress = (story) => {
-    // TODO: Navigate to edit story screen
-    console.log('Edit story:', story.title);
-  };
-
-  const formatCurrency = (amount) => {
-    return `₹${amount.toFixed(2)}`;
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'published':
-        return '#4caf50';
-      case 'draft':
-        return '#ff9800';
-      case 'pending':
-        return '#2196f3';
-      default:
-        return '#666';
-    }
-  };
+  const STAT_CARDS = [
+    { 
+      key: 'stories', 
+      label: t('stories') || 'Stories', 
+      value: stats.totalStories, 
+      iconName: 'book-open', 
+      iconColor: '#C084FC' 
+    },
+    { 
+      key: 'views', 
+      label: t('views') || 'Views', 
+      value: stats.totalViews, 
+      iconName: 'eye', 
+      iconColor: '#60A5FA' 
+    },
+    { 
+      key: 'likes', 
+      label: t('likes') || 'Likes', 
+      value: stats.totalLikes, 
+      iconName: 'heart', 
+      iconColor: '#F87171' 
+    },
+    { 
+      key: 'followers', 
+      label: t('followers') || 'Followers', 
+      value: stats.followers, 
+      iconName: 'users', 
+      iconColor: '#34D399',
+      onPress: () => navigation.navigate('FollowersList', { userId: user.id, type: 'followers' })
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#A855F7"
+          />
         }
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* ── Header ─────────────────────────────────────── */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>
-            Welcome back, {user?.name || 'Writer'}! ✍️
-          </Text>
-          <Text style={styles.subtitle}>Your writing dashboard</Text>
-        </View>
-
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.totalStories}</Text>
-              <Text style={styles.statLabel}>Stories</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.totalViews}</Text>
-              <Text style={styles.statLabel}>Total Views</Text>
-            </View>
-          </View>
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.totalLikes}</Text>
-              <Text style={styles.statLabel}>Total Likes</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{formatCurrency(stats.totalEarnings)}</Text>
-              <Text style={styles.statLabel}>Total Earnings</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={handleCreateStory}
-          >
-            <Text style={styles.createButtonText}>+ Create New Story</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Earnings Summary */}
-        <View style={styles.earningsContainer}>
-          <Text style={styles.sectionTitle}>Earnings</Text>
-          <View style={styles.earningsCard}>
-            <View style={styles.earningsRow}>
-              <Text style={styles.earningsLabel}>This Month</Text>
-              <Text style={styles.earningsAmount}>
-                {formatCurrency(stats.thisMonthEarnings)}
+          <View style={styles.headerLeft}>
+            <LinearGradient colors={['#A855F7', '#7C3AED']} style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {user?.name?.[0]?.toUpperCase() ?? 'W'}
+              </Text>
+            </LinearGradient>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.greeting} numberOfLines={1}>
+                {t('writerWelcome') ?? 'Welcome back'},
+              </Text>
+              <Text style={styles.username} numberOfLines={1}>
+                {user?.name ?? 'Writer'}
               </Text>
             </View>
-            <View style={styles.earningsRow}>
-              <Text style={styles.earningsLabel}>Total Earned</Text>
-              <Text style={styles.earningsAmountTotal}>
-                {formatCurrency(stats.totalEarnings)}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.withdrawButton}>
-              <Text style={styles.withdrawButtonText}>Request Withdrawal</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-
-        {/* My Stories */}
-        {/* <View style={styles.storiesContainer}>
-          <Text style={styles.sectionTitle}>My Stories</Text>
-          {myStories.map((story) => (
+          
+          <View style={styles.headerRightActions}>
             <TouchableOpacity
-              key={story.id}
-              style={styles.storyCard}
-              onPress={() => handleStoryPress(story)}
+              style={styles.bellBtn}
+              onPress={() => navigation.navigate('Notifications')}
+              activeOpacity={0.75}
             >
-              <View style={styles.storyHeader}>
-                <Text style={styles.storyTitle}>{story.title}</Text>
-                <View style={[
-                  styles.statusBadge,
-                  { backgroundColor: getStatusColor(story.status) }
-                ]}>
-                  <Text style={styles.statusText}>
-                    {story.status.toUpperCase()}
+              <Feather name="bell" size={20} color="#C4B5FD" />
+              {unreadCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
                   </Text>
                 </View>
-              </View>
-              <Text style={styles.storyDate}>
-                Created: {new Date(story.created_at).toLocaleDateString()}
-              </Text>
-              <View style={styles.storyStats}>
-                <Text style={styles.statText}>👁️ {story.views}</Text>
-                <Text style={styles.statText}>❤️ {story.likes}</Text>
-                <Text style={styles.statText}>
-                  💰 {formatCurrency(story.earnings)}
-                </Text>
-              </View>
+              )}
             </TouchableOpacity>
-          ))}
-        </View> */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={handleMyStory}
-          >
-            <Text style={styles.createButtonText}>My Stories</Text>
-          </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.ctaBtn}
+              onPress={() => navigation.navigate('CreateEditStory')}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#7C3AED', '#A855F7']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.ctaGradient}
+              >
+                <Feather name="plus" size={14} color="#fff" style={styles.ctaIcon} />
+                <Text style={styles.ctaText}>{t('newStory') || 'New'}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* ── Stats Hub Panel ────────────────────────────── */}
+        <View style={styles.statsContainer}>
+          <LinearGradient
+            colors={['#1E1236', '#100725']}
+            style={styles.statsCard}
+          >
+            {STAT_CARDS.map((s, index) => {
+              const ColumnComponent = s.onPress ? TouchableOpacity : View;
+              return (
+                <React.Fragment key={s.key}>
+                  {index > 0 && <View style={styles.divider} />}
+                  <ColumnComponent
+                    style={styles.statCol}
+                    onPress={s.onPress}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.iconWrapper, { backgroundColor: s.iconColor + '12' }]}>
+                      <Feather name={s.iconName} size={15} color={s.iconColor} />
+                    </View>
+                    <Text style={styles.statValue}>{s.value}</Text>
+                    <Text style={styles.statLabel} numberOfLines={1}>{s.label}</Text>
+                    
+                    {s.onPress && (
+                      <View style={styles.interactiveIndicator}>
+                        <Feather name="chevron-right" size={10} color="#34D399" />
+                      </View>
+                    )}
+                  </ColumnComponent>
+                </React.Fragment>
+              );
+            })}
+          </LinearGradient>
+        </View>
+
+        {/* ── Section label ──────────────────────────────── */}
+        <Text style={styles.sectionLabel}>{t('myStories') || 'My Stories'}</Text>
+
+        {/* ── Stories list (inline component) ───────────── */}
+        <MyStoriesScreen navigation={navigation} isInline={true} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
+export default WriterDashboardScreen;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#0F0A1E',
   },
+  scrollContent: {
+    paddingBottom: 48,
+  },
+
+  // header
   header: {
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e8ed',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#A855F7',
+  },
+  avatarText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  headerTextContainer: {
+    marginLeft: 10,
+    flex: 1,
   },
   greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontWeight: '500',
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 5,
-  },
-  statsContainer: {
-    padding: 20,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 15,
-    marginBottom: 15,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.22,
-    shadowRadius: 2.22,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
-  },
-  actionsContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  createButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  createButtonText: {
+  username: {
+    fontSize: 17,
+    fontWeight: '800',
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    marginTop: 2,
   },
-  earningsContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+  ctaBtn: {
+    borderRadius: 20,
+    overflow: 'hidden',
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-  },
-  earningsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.22,
-    shadowRadius: 2.22,
-  },
-  earningsRow: {
+  ctaGradient: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
-  earningsLabel: {
-    fontSize: 16,
-    color: '#666',
+  ctaIcon: {
+    marginRight: 4,
   },
-  earningsAmount: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#4caf50',
+  ctaText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
-  earningsAmountTotal: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#007AFF',
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  withdrawButton: {
-    backgroundColor: '#4caf50',
+  bellBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#EF4444',
     borderRadius: 8,
-    paddingVertical: 12,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 15,
+    paddingHorizontal: 3,
   },
-  withdrawButtonText: {
+  bellBadgeText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 9,
+    fontWeight: '800',
   },
-  storiesContainer: {
+
+  // Stats Hub Panel
+  statsContainer: {
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 26,
   },
-  storyCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.22,
-    shadowRadius: 2.22,
-  },
-  storyHeader: {
+  statsCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    borderRadius: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.15)',
   },
-  storyTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+  statCol: {
     flex: 1,
-  },
-  statusBadge: {
-    borderRadius: 10,
-    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
     paddingVertical: 4,
   },
-  statusText: {
+  divider: {
+    width: 1,
+    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+    height: '70%',
+    alignSelf: 'center',
+  },
+  iconWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '800',
     color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
   },
-  storyDate: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 10,
+  statLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.45)',
+    marginTop: 3,
+    fontWeight: '600',
   },
-  storyStats: {
-    flexDirection: 'row',
-    gap: 15,
+  interactiveIndicator: {
+    position: 'absolute',
+    top: 2,
+    right: 4,
   },
-  statText: {
-    fontSize: 12,
-    color: '#666',
+
+  // section label
+  sectionLabel: {
+    color: '#A855F7',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginLeft: 20,
+    marginBottom: 8,
+    marginTop: 8,
   },
 });
-
-export default WriterDashboardScreen;

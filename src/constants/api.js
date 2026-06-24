@@ -1,7 +1,6 @@
 // src/constants/api.js
-// For physical device with your IP
-// export const API_BASE_URL = 'http://192.168.1.103:8000/api/v1';
-export const API_BASE_URL = 'https://btr.topscripts.in/peter_boyle@facebook_integration/test/kalam-backend/public/api/v1';
+export const API_BASE_URL = 'https://kalam.finalwhistlee.com/api/v1';
+export const BASE_URL='https://kalam.finalwhistlee.com/storage/';
 
 export const API_ENDPOINTS = {
   // Auth endpoints
@@ -11,8 +10,6 @@ export const API_ENDPOINTS = {
   USER: '/user',
   FORGOT_PASSWORD: '/auth/forgot-password',
   RESET_PASSWORD: '/auth/reset-password',
-  
-  
   // Test endpoint
   TEST: '/test',  
 };

@@ -13,8 +13,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiService from '../../services/apiService';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const CategoriesScreen = ({ navigation }) => {
+  const { t } = useLanguage();
   const [categories, setCategories] = useState([]);
   const [stories, setStories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -88,9 +90,9 @@ const CategoriesScreen = ({ navigation }) => {
           {getCategoryEmoji(item.name)}
         </Text>
       </View>
-      <Text style={styles.categoryName}>{item.name}</Text>
+      <Text style={styles.categoryName}>{t(item.slug) || item.name}</Text>
       <Text style={styles.categoryCount}>
-        {item.stories_count || 0} stories
+        {item.stories_count || 0} {t('storiesCount') || 'stories'}
       </Text>
     </TouchableOpacity>
   );
@@ -132,6 +134,7 @@ const CategoriesScreen = ({ navigation }) => {
       'Comedy': '😂',
       'Drama': '🎭',
       'Sci-Fi': '🚀',
+      'Science Fiction': '🚀',
       'Thriller': '😱',
       'Historical': '🏛️',
       'Young Adult': '🌈',
@@ -139,6 +142,9 @@ const CategoriesScreen = ({ navigation }) => {
       'Biography': '👤',
       'Fiction': '📚',
       'Non-Fiction': '📖',
+      'Social': '👥',
+      'Religious': '🙏',
+      'Educational': '💡',
     };
     
     return emojiMap[categoryName] || '📘';
@@ -163,12 +169,12 @@ const CategoriesScreen = ({ navigation }) => {
               style={styles.backButton}
               onPress={handleBackToCategories}
             >
-              <Text style={styles.backButtonText}>← Categories</Text>
+              <Text style={styles.backButtonText}>← {t('categories') || 'Categories'}</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{selectedCategory.name}</Text>
+            <Text style={styles.headerTitle}>{t(selectedCategory.slug) || selectedCategory.name}</Text>
           </View>
         ) : (
-          <Text style={styles.headerTitle}>Story Categories</Text>
+          <Text style={styles.headerTitle}>{t('storyCategories') || 'Story Categories'}</Text>
         )}
       </View>
 
@@ -177,7 +183,7 @@ const CategoriesScreen = ({ navigation }) => {
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder={`Search in ${selectedCategory.name}...`}
+            placeholder={`${t('searchStories') || 'Search'} (${t(selectedCategory.slug) || selectedCategory.name})...`}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearch}
@@ -214,11 +220,14 @@ const CategoriesScreen = ({ navigation }) => {
               }
               ListEmptyComponent={() => (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyTitle}>No Stories Found</Text>
+                  <Text style={styles.emptyTitle}>{t('noStoriesFound') || 'No Stories Found'}</Text>
                   <Text style={styles.emptyText}>
                     {searchQuery 
-                      ? `No stories found for "${searchQuery}" in ${selectedCategory.name}`
-                      : `No stories available in ${selectedCategory.name} category yet.`
+                      ? (t('noStoriesWithSearch') || 'No stories found for "{{search}}" in {{category}}')
+                          .replace('{{search}}', searchQuery)
+                          .replace('{{category}}', t(selectedCategory.slug) || selectedCategory.name)
+                      : (t('noStoriesInCategory') || 'No stories available in {{category}} category yet.')
+                          .replace('{{category}}', t(selectedCategory.slug) || selectedCategory.name)
                     }
                   </Text>
                 </View>

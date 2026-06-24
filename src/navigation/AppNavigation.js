@@ -3,14 +3,17 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+
+// Import Feather Icons for the clean, professional outline style
+import Feather from 'react-native-vector-icons/Feather';
 
 // Import your screens
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 
-// Placeholder screens for main app (you'll replace these later)
+// Placeholder screens for main app
 import HomeScreen from '../screens/main/HomeScreen';
 import WriterDashboardScreen from '../screens/writer/WriterDashboardScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
@@ -20,243 +23,326 @@ import MyStoriesScreen from '../screens/writer/MyStoriesScreen';
 import StoryPreviewScreen from '../screens/writer/StoryPreviewScreen';
 import StoryPreviewScreenReader from '../screens/reader/StoryPreviewScreenReader';
 import StoryReaderScreen from '../screens/reader/StoryReaderScreen';
-import PaymentScreen from '../screens/payment/PaymentScreen';
+import EarningsDashboardScreen from '../screens/writer/EarningsDashboardScreen';
+import EarningsHistoryScreen from '../screens/writer/EarningsHistoryScreen';
+import WithdrawalRequestScreen from '../screens/writer/WithdrawalRequestScreen';
+import WithdrawalHistoryScreen from '../screens/writer/WithdrawalHistoryScreen';
+
+import EditProfileScreen from '../screens/profile/EditProfileScreen';
+import UserProfileScreen from '../screens/social/UserProfileScreen';
+import CommentsScreen from '../screens/social/CommentsScreen';
+import WriterStoriesScreen from '../screens/social/WriterStoriesScreen';
+import FollowersListScreen from '../screens/social/FollowersListScreen';
+import NotificationsScreen from '../screens/social/NotificationsScreen';
+import TermsScreen from '../screens/profile/TermsScreen';
+import PrivacyPolicyScreen from '../screens/profile/PrivacyPolicyScreen';
+import { useLanguage } from '../contexts/LanguageContext';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 // Loading Screen Component
-const LoadingScreen = () => (
-  <View style={styles.loadingContainer}>
-    <ActivityIndicator size="large" color="#6B46C1" />
-    <Text style={styles.loadingText}>Loading...</Text>
-  </View>
-);
+const LoadingScreen = () => { 
+  const { t } = useLanguage();
+  return (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#A855F7" />
+      <Text style={styles.loadingText}>{t('loading')}</Text>
+    </View>
+  );
+};
 
 // Main Stack Navigator
 const ReaderNavigator = () => {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      {/* Tab Navigator as the main screen */}
-      <Stack.Screen 
-        name="MainTabs" 
-        component={ReaderTabs} 
-      />
-          
-      {/* Modal/Full-screen screens */}
-      <Stack.Screen 
-        name="StoryPreviewScreenReader" 
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainTabs" component={ReaderTabs} />
+      <Stack.Screen
+        name="StoryPreviewScreenReader"
         component={StoryPreviewScreenReader}
-        options={{
-          presentation: 'card',
-        }}
+        options={{ presentation: 'card' }}
       />
-      
-      <Stack.Screen 
-        name="StoryReader" 
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+      <Stack.Screen name="Comments" component={CommentsScreen} />
+      <Stack.Screen name="WriterStories" component={WriterStoriesScreen} />
+      <Stack.Screen name="FollowersList" component={FollowersListScreen} />
+      <Stack.Screen name="StoryPreview" component={StoryPreviewScreen} />
+      <Stack.Screen
+        name="StoryReader"
         component={StoryReaderScreen}
-        options={{
-          presentation: 'fullScreenModal',
-          gestureEnabled: false,
-        }}
+        options={{ presentation: 'fullScreenModal', gestureEnabled: false }}
       />
-      
-      <Stack.Screen 
-        name="PaymentScreen" 
-        component={PaymentScreen}
-        options={{
-          presentation: 'modal',
-        }}
-      />
+      <Stack.Screen name="Terms" component={TermsScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
     </Stack.Navigator>
   );
 };
+
 // Auth Stack Navigation
-const AuthStack = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerStyle: {
-        backgroundColor: '#6B46C1',
-      },
-      headerTintColor: '#fff',
-      headerTitleStyle: {
-        fontWeight: 'bold',
-      },
-    }}
-  >
-    <Stack.Screen 
-      name="Login" 
-      component={LoginScreen}
-      options={{ title: 'Sign In' }}
-    />
-    <Stack.Screen 
-      name="Register" 
-      component={RegisterScreen}
-      options={{ title: 'Sign Up' }}
-    />
-    <Stack.Screen 
-      name="ForgotPassword" 
-      component={ForgotPasswordScreen}
-      options={{ title: 'Reset Password' }}
-    />
-  </Stack.Navigator>
-);
+const AuthStack = () => {
+  const { t } = useLanguage(); 
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: '#12082A',
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: 'rgba(124,58,237,0.2)',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: '800',
+          fontSize: 17,
+        },
+        cardStyle: { backgroundColor: '#0F0A1E' },
+      }}
+    >
+      <Stack.Screen name="Login" component={LoginScreen} options={{ title: t('signIn') }} />
+      <Stack.Screen name="Register" component={RegisterScreen} options={{ title: t('signUp') }} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: t('resetPassword') }} />
+      <Stack.Screen name="Terms" component={TermsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: false }} />
+    </Stack.Navigator>
+  );
+};
+
 // Writer Stack Navigation
-const WriterStack = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerShown: false,
-    }}
-  >
-    <Stack.Screen name="WriterTabs" component={WriterTabs} />
-    <Stack.Screen 
-      name="CreateEditStory" 
-      component={CreateEditStoryScreen}
-      options={{ presentation: 'modal' }}
-    />
-    <Stack.Screen name="MyStories" component={MyStoriesScreen} />
-    <Stack.Screen name="StoryPreview" component={StoryPreviewScreen} />
-  </Stack.Navigator>
-);
+const WriterStack = () => {
+  const { t } = useLanguage();
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="WriterTabs" component={WriterTabs} />
+      <Stack.Screen name="CreateEditStory" component={CreateEditStoryScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="MyStories" component={MyStoriesScreen} />
+      <Stack.Screen name="StoryPreview" component={StoryPreviewScreen} />
+      <Stack.Screen name="StoryPreviewScreenReader" component={StoryPreviewScreenReader} />
+      <Stack.Screen
+        name="StoryReader"
+        component={StoryReaderScreen}
+        options={{ presentation: 'fullScreenModal', gestureEnabled: false }}
+      />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="EarningsDashboard" component={EarningsDashboardScreen} options={{ title: t('myEarnings') }} />
+      <Stack.Screen name="EarningsHistory" component={EarningsHistoryScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="WithdrawalRequest" component={WithdrawalRequestScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+      <Stack.Screen name="Comments" component={CommentsScreen} />
+      <Stack.Screen name="WriterStories" component={WriterStoriesScreen} />
+      <Stack.Screen name="FollowersList" component={FollowersListScreen} />
+      <Stack.Screen name="WithdrawalHistory" component={WithdrawalHistoryScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Terms" component={TermsScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+    </Stack.Navigator>
+  );
+};
+
+// Global Configuration for Tab Bars to maintain simplicity & professionalism
+const commonTabOptions = {
+  headerShown: false,
+  tabBarStyle: {
+    backgroundColor: '#0A0518', // Deeper premium dark hue
+    borderTopColor: 'rgba(168, 85, 247, 0.15)', // Highly subtle line separation
+    borderTopWidth: 1,
+    height: Platform.OS === 'ios' ? 88 : 72,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    paddingTop: 8,
+    elevation: 0, 
+    shadowOpacity: 0, // Removed distracting heavy neon shadows
+  },
+  tabBarActiveTintColor: '#A855F7', // Bright focused color
+  tabBarInactiveTintColor: '#64748B', // Muted professional slate color
+  tabBarLabelStyle: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+};
 
 // Reader Tab Navigation
-const ReaderTabs = () => (
-  <Tab.Navigator
-    screenOptions={{
-      tabBarActiveTintColor: '#6B46C1',
-      tabBarInactiveTintColor: '#666',
-      headerShown: false,
-    }}
-  >
-    <Tab.Screen 
-      name="Home" 
-      component={HomeScreen}
-      options={{
-        tabBarLabel: 'Home',
-        tabBarIcon: ({ color, size }) => (
-          <Text style={{ color, fontSize: size }}>🏠</Text>
-        ),
-      }}
-    />
-    <Tab.Screen 
-      name="Profile" 
-      component={ProfileScreen}
-      options={{
-        tabBarLabel: 'Profile',
-        tabBarIcon: ({ color, size }) => (
-          <Text style={{ color, fontSize: size }}>👤</Text>
-        ),
-      }}
-    />
-    
-  </Tab.Navigator>
-);
+const ReaderTabs = () => {
+  const { t } = useLanguage();
+  return (
+    <Tab.Navigator screenOptions={commonTabOptions}>
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarLabel: t('home'),
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="home" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: t('profile'),
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="user" size={22} color={color} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
 
 // Writer Tab Navigation
-const WriterTabs = () => (
-  <Tab.Navigator
-    screenOptions={{  
-      tabBarActiveTintColor: '#6B46C1',
-      tabBarInactiveTintColor: '#666',
-      headerShown: false,
-    }}
-  >
-    <Tab.Screen 
-      name="Home" 
-      component={HomeScreen}
-      options={{
-        tabBarLabel: 'Home',
-        tabBarIcon: ({ color, size }) => (
-          <Text style={{ color, fontSize: size }}>🏠</Text>
-        ),
-      }}
-    />
-    <Tab.Screen 
-      name="Dashboard" 
-      component={WriterDashboardScreen}
-      options={{
-        tabBarLabel: 'My Stories',
-        tabBarIcon: ({ color, size }) => (
-          <Text style={{ color, fontSize: size }}>✍️</Text>
-        ),
-      }}
-    />
-    <Tab.Screen 
-      name="Profile" 
-      component={ProfileScreen}
-      options={{
-        tabBarLabel: 'Profile',
-        tabBarIcon: ({ color, size }) => (
-          <Text style={{ color, fontSize: size }}>👤</Text>
-        ),
-      }}
-    />
-  </Tab.Navigator>
-);
+const WriterTabs = () => {
+  const { t } = useLanguage();
+  return (
+    <Tab.Navigator screenOptions={commonTabOptions}>
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarLabel: t('home'),
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="home" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="CreateStoryTab"
+        component={View}
+        options={{
+          tabBarLabel: t('write') ?? 'Write',
+          tabBarIcon: ({ color }) => (
+            <Feather name="plus-circle" size={24} color={color} />
+          ),
+        }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('CreateEditStory');
+          },
+        })}
+      />
+      <Tab.Screen
+        name="Dashboard"
+        component={WriterDashboardScreen}
+        options={{
+          tabBarLabel: t('myStories'),
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="book-open" size={22} color={color} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
 
 // Admin Tab Navigation
-const AdminTabs = () => (
-  <Tab.Navigator
-    screenOptions={{
-      tabBarActiveTintColor: '#6B46C1',
-      tabBarInactiveTintColor: '#666',
-      headerShown: false,
-    }}
-  >
-    <Tab.Screen 
-      name="Home" 
-      component={HomeScreen}
-      options={{
-        tabBarLabel: 'Home',
-        tabBarIcon: ({ color, size }) => (
-          <Text style={{ color, fontSize: size }}>🏠</Text>
-        ),
-      }}
-    />
-    <Tab.Screen 
-      name="Dashboard" 
-      component={WriterDashboardScreen}
-      options={{
-        tabBarLabel: 'Admin',
-        tabBarIcon: ({ color, size }) => (
-          <Text style={{ color, fontSize: size }}>⚙️</Text>
-        ),
-      }}
-    />
-    <Tab.Screen 
-      name="Profile" 
-      component={ProfileScreen}
-      options={{
-        tabBarLabel: 'Profile',
-        tabBarIcon: ({ color, size }) => (
-          <Text style={{ color, fontSize: size }}>👤</Text>
-        ),
-      }}
-    />
-  </Tab.Navigator>
-);
+const AdminTabs = () => {
+  const { t } = useLanguage();
+  return (
+    <Tab.Navigator screenOptions={commonTabOptions}>
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarLabel: t('home'),
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="home" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="CreateStoryTab"
+        component={View}
+        options={{
+          tabBarLabel: t('write') ?? 'Write',
+          tabBarIcon: ({ color }) => (
+            <Feather name="plus-circle" size={24} color={color} />
+          ),
+        }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('CreateEditStory');
+          },
+        })}
+      />
+      <Tab.Screen
+        name="Dashboard"
+        component={WriterDashboardScreen}
+        options={{
+          tabBarLabel: t('admin'),
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="sliders" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: t('profile'),
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="user" size={22} color={color} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
+
+// Admin Stack Navigation
+const AdminStack = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="AdminTabs" component={AdminTabs} />
+      <Stack.Screen name="CreateEditStory" component={CreateEditStoryScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="MyStories" component={MyStoriesScreen} />
+      <Stack.Screen name="StoryPreview" component={StoryPreviewScreen} />
+      <Stack.Screen name="StoryPreviewScreenReader" component={StoryPreviewScreenReader} />
+      <Stack.Screen
+        name="StoryReader"
+        component={StoryReaderScreen}
+        options={{ presentation: 'fullScreenModal', gestureEnabled: false }}
+      />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+      <Stack.Screen name="Comments" component={CommentsScreen} />
+      <Stack.Screen name="WriterStories" component={WriterStoriesScreen} />
+      <Stack.Screen name="FollowersList" component={FollowersListScreen} />
+      <Stack.Screen name="Terms" component={TermsScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+    </Stack.Navigator>
+  );
+};
 
 // Main App Navigator with Role-based Navigation
 const MainAppNavigator = () => {
   const { user } = useAuth();
-  
-  // Determine which navigation to show based on user role
-  const getUserNavigation = () => {
-    switch (user?.role) {
-      case 'writer':
-        return <WriterStack />;
-      case 'admin':
-        return <AdminTabs />;
-      case 'reader':
-      default:
-        return <ReaderNavigator />;
-    }
-  };
+  switch (user?.role) {
+    case 'writer':
+      return <WriterStack />;
+    case 'admin':
+      return <AdminStack />;
+    case 'reader':
+    default:
+      return <ReaderNavigator />;
+  }
+};
 
-  return getUserNavigation();
+const linking = {
+  prefixes: ['kalam://'],
+  config: {
+    screens: {
+      StoryPreview: { path: 'story/:id' },
+      StoryPreviewScreenReader: { path: 'reader/story/:id' },
+    },
+  },
 };
 
 // Root Navigator
@@ -268,7 +354,7 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}> 
       {isAuthenticated ? <MainAppNavigator /> : <AuthStack />}
     </NavigationContainer>
   );
@@ -279,12 +365,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#0F0A1E',
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
+    marginTop: 12,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '600',
   },
 });
 

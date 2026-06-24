@@ -1,7 +1,34 @@
 {
   "expo": {
-    "name": "kalam",
+    "name": "Kalam Kaar",
     "slug": "kalam",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "icon": "./icon.png",
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7cd091cc-91be-448c-a5dc-e518799e8a70"
+      }
+    },
+    "android": {
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.gourav911.kalam",
+      "adaptiveIcon": {
+        "foregroundImage": "./icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.gourav911.kalam"
+    }
   }
 }

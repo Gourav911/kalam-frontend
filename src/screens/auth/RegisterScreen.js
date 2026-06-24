@@ -12,20 +12,23 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { COLORS, FONTS, SPACING } from '../../constants/theme';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import KalamLogo from '../../components/common/KalamLogo';
-
+import { useLanguage } from '../../contexts/LanguageContext';
 const RegisterScreen = ({ navigation }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     password_confirmation: '',
-    role: 'reader', // default role
+    role: 'writer', // everyone is a writer now
   });
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [errors, setErrors] = useState({});
   const { register, loading } = useAuth();
 
@@ -40,12 +43,15 @@ const RegisterScreen = ({ navigation }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.name) newErrors.name = 'Name is required';
-    if (!formData.email) newErrors.email = 'Email is required';
-    if (!formData.password) newErrors.password = 'Password is required';
-    if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
+    if (!formData.name) newErrors.name = t('nameRequired');
+    if (!formData.email) newErrors.email = t('emailRequired');
+    if (!formData.password) newErrors.password = t('passwordRequired');
+    if (formData.password.length < 8) newErrors.password = t('passwordMinLength');
     if (formData.password !== formData.password_confirmation) {
-      newErrors.password_confirmation = 'Passwords do not match';
+      newErrors.password_confirmation = t('passwordsDoNotMatch');
+    }
+    if (!termsAccepted) {
+      newErrors.terms = "You must accept the Terms and Privacy Policy.";
     }
 
     return newErrors;
@@ -61,7 +67,6 @@ const RegisterScreen = ({ navigation }) => {
     }
 
     const result = await register(formData);
-    console.log(result)
     if (!result.success) {
       if (result.errors) {
         // Handle validation errors from server
@@ -71,53 +76,15 @@ const RegisterScreen = ({ navigation }) => {
         });
         setErrors(serverErrors);
       } else {
-        Alert.alert('Registration Failed', result.message);
+        Alert.alert(t('registrationFailed'), result.message);
       }
     }
   };
 
-  const RoleSelector = () => (
-    <View style={styles.roleContainer}>
-      <Text style={styles.roleLabel}>I want to join as a:</Text>
-      <View style={styles.roleButtons}>
-        <TouchableOpacity
-          style={[
-            styles.roleButton,
-            formData.role === 'reader' && styles.roleButtonActive
-          ]}
-          onPress={() => updateFormData('role', 'reader')}
-        >
-          <Text style={[
-            styles.roleButtonText,
-            formData.role === 'reader' && styles.roleButtonTextActive
-          ]}>
-            📚 Reader
-          </Text>
-          <Text style={styles.roleDescription}>Discover and enjoy amazing stories</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.roleButton,
-            formData.role === 'writer' && styles.roleButtonActive
-          ]}
-          onPress={() => updateFormData('role', 'writer')}
-        >
-          <Text style={[
-            styles.roleButtonText,
-            formData.role === 'writer' && styles.roleButtonTextActive
-          ]}>
-            ✍️ Writer
-          </Text>
-          <Text style={styles.roleDescription}>Share your stories and earn</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
 
   return (
     <LinearGradient
-      colors={['#1F1B2E', '#2D2438', '#6B46C1']}
+      colors={['#7C3AED', '#2D1B69', '#0F0A1E']}
       style={styles.container}
     >
       <StatusBar style="light" />
@@ -134,17 +101,17 @@ const RegisterScreen = ({ navigation }) => {
 
           {/* Welcome Text */}
           <View style={styles.welcomeContainer}>
-            <Text style={styles.welcomeTitle}>Join Kalam</Text>
+            <Text style={styles.welcomeTitle}>{t('joinKalam')}</Text>
             <Text style={styles.welcomeSubtitle}>
-              Start your storytelling journey today
-            </Text>
+              {t('registerSubtitle')}            
+              </Text>
           </View>
 
           {/* Registration Form */}
           <View style={styles.formContainer}>
             <Input
               label="Full Name"
-              placeholder="Enter your full name"
+              placeholder={t('fullNamePlaceholder')}
               value={formData.name}
               onChangeText={(value) => updateFormData('name', value)}
               leftIcon="person-outline"
@@ -153,7 +120,7 @@ const RegisterScreen = ({ navigation }) => {
 
             <Input
               label="Email"
-              placeholder="Enter your email"
+              placeholder={t('emailPlaceholder')}
               value={formData.email}
               onChangeText={(value) => updateFormData('email', value)}
               leftIcon="mail-outline"
@@ -164,7 +131,7 @@ const RegisterScreen = ({ navigation }) => {
 
             <Input
               label="Password"
-              placeholder="Create a password"
+              placeholder={t('passwordCreatePlaceholder')}
               value={formData.password}
               onChangeText={(value) => updateFormData('password', value)}
               leftIcon="lock-closed-outline"
@@ -174,7 +141,7 @@ const RegisterScreen = ({ navigation }) => {
 
             <Input
               label="Confirm Password"
-              placeholder="Confirm your password"
+              placeholder={t('confirmPasswordPlaceholder')}
               value={formData.password_confirmation}
               onChangeText={(value) => updateFormData('password_confirmation', value)}
               leftIcon="lock-closed-outline"
@@ -182,10 +149,27 @@ const RegisterScreen = ({ navigation }) => {
               error={errors.password_confirmation}
             />
 
-            <RoleSelector />
+            <TouchableOpacity 
+              style={styles.termsContainer} 
+              onPress={() => {
+                setTermsAccepted(!termsAccepted);
+                if (errors.terms) setErrors(prev => ({...prev, terms: null}));
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, termsAccepted && styles.checkboxActive]}>
+                {termsAccepted && <Feather name="check" size={14} color="#fff" />}
+              </View>
+              <View style={styles.termsTextContainer}>
+                <Text style={styles.termsText}>
+                  I agree to the <Text style={styles.termsLink} onPress={() => navigation.navigate('Terms')}>Terms & Conditions</Text> and <Text style={styles.termsLink} onPress={() => navigation.navigate('PrivacyPolicy')}>Privacy Policy</Text>
+                </Text>
+              </View>
+            </TouchableOpacity>
+            {errors.terms ? <Text style={styles.errorText}>{errors.terms}</Text> : null}
 
             <Button
-              title="Create Account"
+              title={t('createAccount')}
               onPress={handleRegister}
               loading={loading}
               style={styles.registerButton}
@@ -194,9 +178,9 @@ const RegisterScreen = ({ navigation }) => {
 
           {/* Sign In Link */}
           <View style={styles.signinContainer}>
-            <Text style={styles.signinText}>Already have an account? </Text>
+            <Text style={styles.signinText}>{t('alreadyHaveAccount')}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.signinLink}>Sign In</Text>
+              <Text style={styles.signinLink}>{t('signIn')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -206,12 +190,8 @@ const RegisterScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  keyboardView: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  keyboardView: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     padding: SPACING.lg,
@@ -223,70 +203,70 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     fontSize: FONTS.sizes.xxl,
-    fontWeight: 'bold',
-    color: COLORS.text.primary,
+    fontWeight: '800',
+    color: '#fff',
     marginBottom: SPACING.xs,
   },
   welcomeSubtitle: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.text.secondary,
+    color: 'rgba(255,255,255,0.6)',
     textAlign: 'center',
   },
-  formContainer: {
-    marginBottom: SPACING.lg,
-  },
-  roleContainer: {
-    marginBottom: SPACING.lg,
-  },
-  roleLabel: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.primary,
-    marginBottom: SPACING.sm,
-    fontWeight: '500',
-  },
-  roleButtons: {
-    gap: SPACING.sm,
-  },
-  roleButton: {
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  roleButtonActive: {
-    borderColor: COLORS.secondary,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-  },
-  roleButtonText: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.text.primary,
-    fontWeight: '600',
+  formContainer: { marginBottom: SPACING.lg },
+  registerButton: { marginTop: SPACING.lg },
+  termsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.md,
     marginBottom: SPACING.xs,
   },
-  roleButtonTextActive: {
-    color: COLORS.secondary,
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  roleDescription: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.text.secondary,
+  checkboxActive: {
+    backgroundColor: '#A855F7',
+    borderColor: '#A855F7',
   },
-  registerButton: {
-    marginTop: SPACING.md,
+  termsTextContainer: {
+    flex: 1,
+  },
+  termsText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  termsLink: {
+    color: '#A855F7',
+    fontWeight: '700',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: SPACING.sm,
   },
   signinContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: SPACING.md,
   },
   signinText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.text.secondary,
+    color: 'rgba(255,255,255,0.55)',
   },
   signinLink: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.secondary,
-    fontWeight: '600',
+    color: '#A855F7',
+    fontWeight: '700',
   },
 });
 

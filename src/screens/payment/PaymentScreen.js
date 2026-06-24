@@ -1,62 +1,80 @@
 // screens/payment/PaymentScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { usePayment } from '../../hooks/usePayment';
 
 const PaymentScreen = ({ route, navigation }) => {
   const { story, onPaymentSuccess } = route.params;
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { processPayment, checkUnlockStatus, isProcessing } = usePayment();
+  const [isAlreadyUnlocked, setIsAlreadyUnlocked] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
 
-  // This is a placeholder for actual Google Pay integration
-  const handleGooglePayment = async () => {
-    setIsProcessing(true);
-    
-    try {
-      // TODO: Implement actual Google Pay integration in Chunk 7
-      // For now, we'll simulate a payment
-      await simulatePayment();
-      
+  useEffect(() => {
+    checkIfAlreadyUnlocked();
+  }, []);
+
+  const checkIfAlreadyUnlocked = async () => {
+    setIsChecking(true);
+    const unlocked = await checkUnlockStatus(story.story.id);
+    setIsAlreadyUnlocked(unlocked);
+    setIsChecking(false);
+
+    if (unlocked) {
       Alert.alert(
-        'Payment Successful! 🎉',
-        `You have successfully unlocked "${story.title}" for ₹5. You can now read the complete story.`,
+        'Already Unlocked',
+        'You have already unlocked this story!',
         [
           {
-            text: 'Read Story',
+            text: 'Read Now',
             onPress: () => {
-              if (onPaymentSuccess) {
-                onPaymentSuccess();
-              }
+              if (onPaymentSuccess) onPaymentSuccess();
               navigation.goBack();
             },
           },
         ]
       );
-    } catch (error) {
-      Alert.alert(
-        'Payment Failed',
-        'There was an error processing your payment. Please try again.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsProcessing(false);
     }
   };
 
-  const simulatePayment = () => {
-    return new Promise((resolve) => {
-      // Simulate API call delay
-      setTimeout(() => {
-        resolve();
-      }, 2000);
-    });
+  const handlePayment = async () => {
+    const result = await processPayment(
+      story.story,
+      // Success callback
+      (data) => {
+        Alert.alert(
+          'Payment Successful! 🎉',
+          `You have successfully unlocked "${story.title}". You can now read the complete story.`,
+          [
+            {
+              text: 'Read Story',
+              onPress: () => {
+                if (onPaymentSuccess) {
+                  onPaymentSuccess();
+                }
+                navigation.goBack();
+              },
+            },
+          ]
+        );
+      },
+      // Failure callback
+      (error) => {
+        Alert.alert(
+          'Payment Failed',
+          error,
+          [{ text: 'OK' }]
+        );
+      }
+    );
   };
 
   const handleCancel = () => {
@@ -73,6 +91,15 @@ const PaymentScreen = ({ route, navigation }) => {
       ]
     );
   };
+
+  if (isChecking) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Checking unlock status...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -96,7 +123,9 @@ const PaymentScreen = ({ route, navigation }) => {
           <View style={styles.storyInfo}>
             <Text style={styles.storyTitle}>{story.title}</Text>
             <Text style={styles.storyAuthor}>by {story.author?.name}</Text>
-            <Text style={styles.storyCategory}>{story.category?.name}</Text>
+            {story.category && (
+              <Text style={styles.storyCategory}>{story.category.name}</Text>
+            )}
           </View>
         </View>
 
@@ -121,54 +150,61 @@ const PaymentScreen = ({ route, navigation }) => {
 
           <Text style={styles.benefitsTitle}>What you get:</Text>
           <View style={styles.benefitsList}>
-            <Text style={styles.benefitItem}>• Complete story access</Text>
-            <Text style={styles.benefitItem}>• Unlimited reading</Text>
-            <Text style={styles.benefitItem}>• Support the writer</Text>
-            <Text style={styles.benefitItem}>• No ads while reading</Text>
+            <Text style={styles.benefitItem}>✓ Complete story access</Text>
+            <Text style={styles.benefitItem}>✓ Unlimited reading</Text>
+            <Text style={styles.benefitItem}>✓ Support the writer</Text>
+            <Text style={styles.benefitItem}>✓ No ads while reading</Text>
           </View>
         </View>
 
         {/* Payment Methods */}
         <View style={styles.paymentMethodsSection}>
-          <Text style={styles.sectionTitle}>Payment Method</Text>
+          <Text style={styles.sectionTitle}>Available Payment Methods</Text>
           
-          <TouchableOpacity 
-            style={styles.paymentMethod}
-            onPress={handleGooglePayment}
-            disabled={isProcessing}
-          >
-            <View style={styles.paymentMethodContent}>
-              <View style={styles.paymentMethodIcon}>
-                <Text style={styles.paymentMethodEmoji}>📱</Text>
-              </View>
-              <View style={styles.paymentMethodText}>
-                <Text style={styles.paymentMethodTitle}>Google Pay</Text>
-                <Text style={styles.paymentMethodSubtitle}>
-                  Pay with UPI, Cards, & more
-                </Text>
-              </View>
-              <Text style={styles.paymentMethodArrow}>→</Text>
+          <View style={styles.paymentMethodsList}>
+            <View style={styles.paymentMethodItem}>
+              <Text style={styles.paymentMethodEmoji}>📱</Text>
+              <Text style={styles.paymentMethodText}>UPI (Google Pay, PhonePe, Paytm)</Text>
             </View>
-          </TouchableOpacity>
+            <View style={styles.paymentMethodItem}>
+              <Text style={styles.paymentMethodEmoji}>💳</Text>
+              <Text style={styles.paymentMethodText}>Credit/Debit Cards</Text>
+            </View>
+            <View style={styles.paymentMethodItem}>
+              <Text style={styles.paymentMethodEmoji}>🏦</Text>
+              <Text style={styles.paymentMethodText}>Net Banking</Text>
+            </View>
+            <View style={styles.paymentMethodItem}>
+              <Text style={styles.paymentMethodEmoji}>👛</Text>
+              <Text style={styles.paymentMethodText}>Wallets</Text>
+            </View>
+          </View>
         </View>
 
         {/* Pay Button */}
         <TouchableOpacity 
-          style={[styles.payButton, isProcessing && styles.payButtonDisabled]}
-          onPress={handleGooglePayment}
-          disabled={isProcessing}
+          style={[styles.payButton, (isProcessing || isAlreadyUnlocked) && styles.payButtonDisabled]}
+          onPress={handlePayment}
+          disabled={isProcessing || isAlreadyUnlocked}
         >
           {isProcessing ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.payButtonText}>Pay ₹5 & Unlock Story</Text>
+            <Text style={styles.payButtonText}>
+              {isAlreadyUnlocked ? 'Already Unlocked' : 'Pay ₹5 & Unlock Story'}
+            </Text>
           )}
         </TouchableOpacity>
+
+        {/* Security Badge */}
+        <View style={styles.securityBadge}>
+          <Text style={styles.securityText}>🔒 Secured by Razorpay</Text>
+        </View>
 
         {/* Disclaimer */}
         <Text style={styles.disclaimer}>
           By proceeding, you agree to unlock this story for ₹5. 
-          Payment will be processed securely through Google Pay.
+          Payment will be processed securely through Razorpay.
         </Text>
       </View>
     </SafeAreaView>

@@ -1,5 +1,5 @@
 // screens/profile/ProfileScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,372 +8,579 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  Switch,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigation } from '@react-navigation/native';
+import { BASE_URL } from '../../constants/api';
+import { useLanguage } from '../../contexts/LanguageContext';
+import apiService from '../../services/apiService';
+
+const APP_VERSION = '1.0.0';
+
+const LANGUAGES = [
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'hi', label: 'हिन्दी', flag: '🇮🇳' },
+  { code: 'pb', label: 'ਪੰਜਾਬੀ', flag: '🇮🇳' },
+  { code: 'ur', label: 'اردو', flag: '🇵🇰' },
+  { code: 'bn', label: 'বাংলা', flag: '🇧🇩' },
+];
 
 const ProfileScreen = () => {
+  const navigation = useNavigation();
+  const { t, language, changeLanguage } = useLanguage();
   const { user, logout } = useAuth();
+
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
+  const [stats, setStats] = useState({ followers: 0, following: 0, stories: 0 });
+
+  // Load live social stats
+  const loadStats = useCallback(async () => {
+    if (!user?.id) return;
+    const result = await apiService.getUserProfile(user.id);
+    if (result.success) {
+      setStats({
+        followers: result.data.followers_count ?? 0,
+        following: result.data.following_count ?? 0,
+        stories: result.data.stories_count ?? 0,
+      });
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          setIsLoggingOut(true);
+          await logout();
+          setIsLoggingOut(false);
         },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            setIsLoggingOut(true);
-            await logout();
-            setIsLoggingOut(false);
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
-  const handleEditProfile = () => {
-    // TODO: Navigate to edit profile screen
-    console.log('Edit profile');
-  };
+  const currentLang = LANGUAGES.find((l) => l.code === language) ?? LANGUAGES[0];
 
-  const handleSettings = () => {
-    // TODO: Navigate to settings screen
-    console.log('Settings');
-  };
+  const avatarUri = user?.profile_image
+    ? { uri: BASE_URL + user.profile_image }
+    : null;
 
-  const handleSupport = () => {
-    // TODO: Navigate to support screen
-    console.log('Support');
-  };
+  const roleLabel =
+    user?.role === 'writer' ? '✍️ Writer'
+    : user?.role === 'admin' ? '👑 Admin'
+    : '📖 Reader';
 
-  const getRoleDisplayName = (role) => {
-    switch (role) {
-      case 'writer':
-        return 'Writer';
-      case 'admin':
-        return 'Administrator';
-      case 'reader':
-      default:
-        return 'Reader';
-    }
-  };
-
-  const getRoleIcon = (role) => {
-    switch (role) {
-      case 'writer':
-        return '✍️';
-      case 'admin':
-        return '👑';
-      case 'reader':
-      default:
-        return '📖';
-    }
-  };
-
-  const menuItems = [
-    {
-      id: 'edit-profile',
-      title: 'Edit Profile',
-      icon: '👤',
-      onPress: handleEditProfile,
-    },
-    {
-      id: 'settings',
-      title: 'Settings',
-      icon: '⚙️',
-      onPress: handleSettings,
-    },
-    {
-      id: 'support',
-      title: 'Help & Support',
-      icon: '❓',
-      onPress: handleSupport,
-    },
-  ];
-
-  // Add writer-specific menu items
-  if (user?.role === 'writer') {
-    menuItems.splice(1, 0, {
-      id: 'earnings',
-      title: 'Earnings & Withdrawals',
-      icon: '💰',
-      onPress: () => console.log('Earnings'),
-    });
-  }
-
+  // ── render ──────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
-        {/* Profile Header */}
-        <View style={styles.profileHeader}>
-          <View style={styles.avatarContainer}>
-            <Image
-              source={{
-                uri: user?.avatar || 'https://via.placeholder.com/100x100',
-              }}
-              style={styles.avatar}
+      <ScrollView showsVerticalScrollIndicator={false}>
+
+        {/* ════════════════════════════════════════
+            SECTION 1 — PROFILE
+        ════════════════════════════════════════ */}
+        <LinearGradient colors={['#2D1B69', '#0F0A1E']} style={styles.profileBanner}>
+
+          {/* Edit button */}
+          <TouchableOpacity
+            style={styles.editBtn}
+            onPress={() => navigation.navigate('EditProfile')}
+          >
+            <Text style={styles.editBtnText}>Edit</Text>
+          </TouchableOpacity>
+
+          {/* Avatar */}
+          <TouchableOpacity 
+            style={styles.avatarRing}
+            onPress={() => setIsImageViewerVisible(true)}
+            activeOpacity={0.8}
+          >
+            {avatarUri ? (
+              <Image source={avatarUri} style={styles.avatarImg} />
+            ) : (
+              <LinearGradient colors={['#A855F7', '#7C3AED']} style={styles.avatarImg}>
+                <Text style={styles.avatarInitial}>
+                  {user?.name?.[0]?.toUpperCase() ?? '?'}
+                </Text>
+              </LinearGradient>
+            )}
+          </TouchableOpacity>
+
+          <Text style={styles.userName}>{user?.name ?? 'Your Name'}</Text>
+          <Text style={styles.userEmail}>{user?.email ?? ''}</Text>
+
+          <View style={styles.rolePill}>
+            <Text style={styles.rolePillText}>{roleLabel}</Text>
+          </View>
+
+          {/* Stats row */}
+          <View style={styles.statsRow}>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => navigation.navigate('UserProfile', { userId: user?.id })}
+            >
+              <Text style={styles.statNum}>{stats.followers}</Text>
+              <Text style={styles.statLbl}>Followers</Text>
+            </TouchableOpacity>
+            <View style={styles.statDivider} />
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => navigation.navigate('UserProfile', { userId: user?.id })}
+            >
+              <Text style={styles.statNum}>{stats.following}</Text>
+              <Text style={styles.statLbl}>Following</Text>
+            </TouchableOpacity>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNum}>{stats.stories}</Text>
+              <Text style={styles.statLbl}>Stories</Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+
+        {/* ════════════════════════════════════════
+            SECTION 2 — SETTINGS
+        ════════════════════════════════════════ */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.sectionHeader}>⚙️  Settings</Text>
+
+          {/* ── Profile settings group ── */}
+          <View style={styles.group}>
+            <SettingsRow
+              icon="👤"
+              label="Edit Profile"
+              onPress={() => navigation.navigate('EditProfile')}
             />
-            <View style={styles.roleContainer}>
-              <Text style={styles.roleIcon}>
-                {getRoleIcon(user?.role)}
+            <RowDivider />
+            <SettingsRow
+              icon="🔒"
+              label="Privacy Policy"
+              onPress={() => navigation.navigate('PrivacyPolicy')}
+            />
+            <RowDivider />
+            <SettingsRow
+              icon="📄"
+              label="Terms and Conditions"
+              onPress={() => navigation.navigate('Terms')}
+            />
+          </View>
+
+          {/* ── Language group ── */}
+          <View style={styles.group}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => setShowLangPicker((v) => !v)}
+              activeOpacity={0.75}
+            >
+              <View style={styles.rowLeft}>
+                <Text style={styles.rowIcon}>🌐</Text>
+                <Text style={styles.rowLabel}>Language</Text>
+              </View>
+              <View style={styles.rowRight}>
+                <Text style={styles.rowValue}>
+                  {currentLang.flag} {currentLang.label}
+                </Text>
+                <Text style={styles.rowChevron}>{showLangPicker ? '▲' : '▼'}</Text>
+              </View>
+            </TouchableOpacity>
+
+            {showLangPicker && (
+              <View style={styles.langPicker}>
+                {LANGUAGES.map((lang) => {
+                  const active = lang.code === language;
+                  return (
+                    <TouchableOpacity
+                      key={lang.code}
+                      style={[styles.langItem, active && styles.langItemActive]}
+                      onPress={() => {
+                        changeLanguage(lang.code);
+                        setShowLangPicker(false);
+                      }}
+                    >
+                      <Text style={styles.langFlag}>{lang.flag}</Text>
+                      <Text style={[styles.langLabel, active && styles.langLabelActive]}>
+                        {lang.label}
+                      </Text>
+                      {active && <Text style={styles.langCheck}>✓</Text>}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {/* ── About group ── */}
+          <View style={styles.group}>
+            <View style={styles.row}>
+              <View style={styles.rowLeft}>
+                <Text style={styles.rowIcon}>📱</Text>
+                <Text style={styles.rowLabel}>App Version</Text>
+              </View>
+              <Text style={styles.rowValue}>v{APP_VERSION}</Text>
+            </View>
+            <RowDivider />
+            <View style={styles.row}>
+              <View style={styles.rowLeft}>
+                <Text style={styles.rowIcon}>🗓</Text>
+                <Text style={styles.rowLabel}>Member Since</Text>
+              </View>
+              <Text style={styles.rowValue}>
+                {user?.created_at
+                  ? new Date(user.created_at).toLocaleDateString('en-IN', {
+                      month: 'short',
+                      year: 'numeric',
+                    })
+                  : '–'}
               </Text>
             </View>
           </View>
-          <Text style={styles.userName}>{user?.name || 'User Name'}</Text>
-          <Text style={styles.userEmail}>{user?.email || 'user@example.com'}</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>
-              {getRoleDisplayName(user?.role)}
-            </Text>
-          </View>
-        </View>
 
-        {/* Stats Section (for writers) */}
-        {user?.role === 'writer' && (
-          <View style={styles.statsSection}>
-            <Text style={styles.sectionTitle}>Your Stats</Text>
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>5</Text>
-                <Text style={styles.statLabel}>Stories</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>1.2K</Text>
-                <Text style={styles.statLabel}>Readers</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>89</Text>
-                <Text style={styles.statLabel}>Likes</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>₹125</Text>
-                <Text style={styles.statLabel}>Earned</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Menu Items */}
-        <View style={styles.menuSection}>
-          {menuItems.map((item) => (
+          {/* ── Danger zone ── */}
+          <View style={styles.group}>
             <TouchableOpacity
-              key={item.id}
-              style={styles.menuItem}
-              onPress={item.onPress}
+              style={[styles.row, styles.rowDanger, isLoggingOut && { opacity: 0.5 }]}
+              onPress={handleLogout}
+              disabled={isLoggingOut}
+              activeOpacity={0.75}
             >
-              <View style={styles.menuItemLeft}>
-                <Text style={styles.menuIcon}>{item.icon}</Text>
-                <Text style={styles.menuTitle}>{item.title}</Text>
+              <View style={styles.rowLeft}>
+                <Text style={styles.rowIcon}>🚪</Text>
+                <Text style={[styles.rowLabel, styles.rowLabelDanger]}>
+                  {isLoggingOut ? 'Logging out…' : 'Logout'}
+                </Text>
               </View>
-              <Text style={styles.menuArrow}>›</Text>
+              <Text style={styles.rowChevron}>›</Text>
             </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* App Info */}
-        <View style={styles.appInfoSection}>
-          <Text style={styles.sectionTitle}>About</Text>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>App Version</Text>
-            <Text style={styles.infoValue}>1.0.0</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Member Since</Text>
-            <Text style={styles.infoValue}>
-              {user?.created_at 
-                ? new Date(user.created_at).toLocaleDateString()
-                : 'January 2024'
-              }
-            </Text>
           </View>
         </View>
 
-        {/* Logout Button */}
-        <View style={styles.logoutSection}>
-          <TouchableOpacity
-            style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]}
-            onPress={handleLogout}
-            disabled={isLoggingOut}
-          >
-            <Text style={styles.logoutButtonText}>
-              {isLoggingOut ? 'Logging out...' : 'Logout'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* ── Image Viewer Modal ── */}
+      <Modal
+        visible={isImageViewerVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsImageViewerVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setIsImageViewerVisible(false)}
+        >
+          {avatarUri ? (
+            <Image 
+              source={avatarUri} 
+              style={styles.fullScreenImage} 
+              resizeMode="contain" 
+            />
+          ) : (
+            <LinearGradient colors={['#A855F7', '#7C3AED']} style={styles.fullScreenImageFallback}>
+                <Text style={[styles.avatarInitial, {fontSize: 120}]}>
+                  {user?.name?.[0]?.toUpperCase() ?? '?'}
+                </Text>
+            </LinearGradient>
+          )}
+          <TouchableOpacity 
+            style={styles.closeModalBtn} 
+            onPress={() => setIsImageViewerVisible(false)}
+          >
+            <Text style={styles.closeModalText}>✕</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
 
+// ── Small reusable pieces ─────────────────────────────────────────
+const SettingsRow = ({ icon, label, value, onPress, disabled }) => (
+  <TouchableOpacity
+    style={styles.row}
+    onPress={onPress}
+    disabled={disabled}
+    activeOpacity={0.75}
+  >
+    <View style={styles.rowLeft}>
+      <Text style={styles.rowIcon}>{icon}</Text>
+      <Text style={[styles.rowLabel, disabled && { opacity: 0.4 }]}>{label}</Text>
+    </View>
+    <View style={styles.rowRight}>
+      {value ? <Text style={styles.rowValue}>{value}</Text> : null}
+      {!disabled && <Text style={styles.rowChevron}>›</Text>}
+    </View>
+  </TouchableOpacity>
+);
+
+const RowDivider = () => <View style={styles.rowDivider} />;
+
+// ── Styles ────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#0F0A1E',
   },
-  profileHeader: {
-    backgroundColor: '#fff',
+
+  // ── Profile banner ──
+  profileBanner: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingTop: 16,
+    paddingBottom: 28,
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e8ed',
-  },
-  avatarContainer: {
     position: 'relative',
-    marginBottom: 15,
   },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#e1e8ed',
-  },
-  roleContainer: {
+  editBtn: {
     position: 'absolute',
-    bottom: -5,
-    right: -5,
-    backgroundColor: '#6B46C1',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
+    top: 16,
+    right: 20,
+    backgroundColor: 'rgba(124,58,237,0.3)',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(124,58,237,0.5)',
+  },
+  editBtnText: {
+    color: '#C4B5FD',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  avatarRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 3,
+    borderColor: '#7C3AED',
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
   },
-  roleIcon: {
-    fontSize: 14,
+  avatarInitial: {
+    color: '#fff',
+    fontSize: 36,
+    fontWeight: '800',
   },
   userName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 3,
   },
   userEmail: {
-    fontSize: 16,
-    color: '#666',
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
     marginBottom: 10,
   },
-  roleBadge: {
-    backgroundColor: '#e3f2fd',
-    borderRadius: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  rolePill: {
+    backgroundColor: 'rgba(124,58,237,0.3)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(124,58,237,0.5)',
+    marginBottom: 20,
   },
-  roleBadgeText: {
-    color: '#1976d2',
+  rolePillText: {
+    color: '#C4B5FD',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  statsSection: {
-    backgroundColor: '#fff',
-    marginTop: 10,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-  },
-  statsContainer: {
+
+  // stats row
+  statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 16,
+    paddingVertical: 14,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   statItem: {
+    flex: 1,
     alignItems: 'center',
   },
-  statNumber: {
+  statDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  statNum: {
+    color: '#fff',
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#6B46C1',
-    marginBottom: 5,
+    fontWeight: '800',
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  menuSection: {
-    backgroundColor: '#fff',
-    marginTop: 10,
-    paddingVertical: 10,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f3f4',
-  },
-  menuItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  menuIcon: {
-    fontSize: 20,
-    marginRight: 15,
-    width: 25,
-    textAlign: 'center',
-  },
-  menuTitle: {
-    fontSize: 16,
-    color: '#333',
-  },
-  menuArrow: {
-    fontSize: 18,
-    color: '#ccc',
-  },
-  appInfoSection: {
-    backgroundColor: '#fff',
-    marginTop: 10,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f3f4',
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  infoValue: {
-    fontSize: 14,
-    color: '#333',
+  statLbl: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 11,
+    marginTop: 3,
     fontWeight: '500',
   },
-  logoutSection: {
-    padding: 20,
-    marginTop: 10,
+
+  // ── Settings section ──
+  settingsSection: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
   },
-  logoutButton: {
-    backgroundColor: '#ff4757',
-    borderRadius: 12,
+  sectionHeader: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+
+  // card group
+  group: {
+    backgroundColor: '#1A1030',
+    borderRadius: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#2D1B69',
+    overflow: 'hidden',
+  },
+
+  // row
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     paddingVertical: 15,
+  },
+  rowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  rowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rowIcon: {
+    fontSize: 18,
+    marginRight: 14,
+    width: 24,
+    textAlign: 'center',
+  },
+  rowLabel: {
+    color: '#E9D5FF',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  rowValue: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  rowChevron: {
+    color: 'rgba(255,255,255,0.25)',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginHorizontal: 16,
+  },
+  rowDanger: {
+    // no extra style needed — label color handles it
+  },
+  rowLabelDanger: {
+    color: '#F87171',
+  },
+
+  // language picker
+  langPicker: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  langItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    marginBottom: 4,
+  },
+  langItemActive: {
+    backgroundColor: 'rgba(124,58,237,0.3)',
+  },
+  langFlag: {
+    fontSize: 18,
+    marginRight: 12,
+  },
+  langLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 15,
+    flex: 1,
+    fontWeight: '500',
+  },
+  langLabelActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  langCheck: {
+    color: '#A855F7',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  logoutButtonDisabled: {
-    backgroundColor: '#ccc',
+  fullScreenImage: {
+    width: '100%',
+    height: '70%',
   },
-  logoutButtonText: {
+  fullScreenImageFallback: {
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeModalBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeModalText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '800',
   },
 });
 

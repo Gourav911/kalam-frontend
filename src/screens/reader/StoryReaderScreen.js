@@ -1,5 +1,4 @@
-// screens/reader/StoryReaderScreen.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,334 +7,471 @@ import {
   TouchableOpacity,
   Dimensions,
   StatusBar,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  Animated,
+  Alert,
+  PanResponder,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import ApiService from "../../services/apiService";
 
-const { width, height } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
-const StoryReaderScreen = ({ route, navigation }) => {
-  const { story, isUnlocked } = route.params;
-  const [fontSize, setFontSize] = useState(16);
-  const [showControls, setShowControls] = useState(true);
-  const [readingProgress, setReadingProgress] = useState(0);
-  const scrollViewRef = useRef(null);
+/* ─── tiny heart icon ──────────────────────────────────── */
+const HeartIcon = ({ liked, size = 22 }) => (
+  <Text style={{ fontSize: size }}>{liked ? "❤️" : "🤍"}</Text>
+);
 
-  useEffect(() => {
-    // Hide controls after 3 seconds
-    const timer = setTimeout(() => {
-      setShowControls(false);
-    }, 3000);
+/* ─── dynamic pagination ────────────────────────────────── */
+function paginateText(text, fontSize) {
+  if (!text) return [""];
 
-    return () => clearTimeout(timer);
-  }, []);
+  // Reserve space for header (~70), footer (~70), padding (~60)
+  const availH = SCREEN_H - 200;
+  const lineH  = fontSize * 1.75;
+  const maxLines = Math.floor(availH / lineH);
 
-  const paragraphs = story.content ? story.content.split('\n\n').filter(p => p.trim() !== '') : [];
+  const charW = fontSize * 0.52;
+  const availW = SCREEN_W - 48; // 24px padding each side
+  const charsPerLine = Math.floor(availW / charW);
 
-  const handleScroll = (event) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const progress = contentOffset.y / (contentSize.height - layoutMeasurement.height);
-    setReadingProgress(Math.min(Math.max(progress, 0), 1));
-  };
+  const maxChars = Math.max(1, maxLines * charsPerLine);
 
-  const toggleControls = () => {
-    setShowControls(!showControls);
-  };
-
-  const increaseFontSize = () => {
-    if (fontSize < 24) {
-      setFontSize(fontSize + 2);
+  const pages = [];
+  let i = 0;
+  while (i < text.length) {
+    let end = i + maxChars;
+    if (end < text.length) {
+      // walk back to word boundary
+      while (end > i && text[end] !== " " && text[end] !== "\n") end--;
+      if (end === i) end = i + maxChars; // no space found – hard cut
+    } else {
+      end = text.length;
     }
-  };
-
-  const decreaseFontSize = () => {
-    if (fontSize > 12) {
-      setFontSize(fontSize - 2);
-    }
-  };
-
-  if (!isUnlocked) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Access Denied</Text>
-          <Text style={styles.errorText}>You need to unlock this story to read it.</Text>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
+    pages.push(text.slice(i, end).trim());
+    i = end;
   }
+  return pages;
+}
 
+/* ═══════════════════════════════════════════════════════════
+   MAIN COMPONENT
+══════════════════════════════════════════════════════════════ */
+const StoryReaderScreen = ({ route, navigation }) => {
+  const { story } = route.params;
+
+  /* ── theme ─────────────────────────────────────────────── */
+  const [theme, setTheme]   = useState("dark");
+  const [fontSize, setFontSize] = useState(18);
+  const [showControls, setShowControls] = useState(true);
+
+  /* ── like state ─────────────────────────────────────────── */
+  const [isLiked, setIsLiked]     = useState(story?.has_liked || story?.story?.is_liked || false);
+  const [likesCount, setLikesCount] = useState(story?.story?.likes_count || 0);
+  const [isLiking, setIsLiking]   = useState(false);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  /* ── pagination ──────────────────────────────────────────── */
+  const slides      = useMemo(() => paginateText(story.story.content, fontSize), [story.story.content, fontSize]);
+  const totalSlides = slides.length;
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  /* ── scroll refs ─────────────────────────────────────────── */
+  const scrollRef     = useRef(null);
+  const isScrolling   = useRef(false); // block slider updates during programmatic scroll
+  const sliderRef     = useRef(null);
+  const sliderWidth   = useRef(0);
+  const sliderPageX   = useRef(0);
+
+  const readingProgress = (currentSlide + 1) / totalSlides;
+
+  /* ── theme definitions ────────────────────────────────────── */
+  const themes = {
+    dark: {
+      bg: "#0F0A1E",
+      text: "rgba(255,255,255,0.87)",
+      titleColor: "#FFFFFF",
+      authorColor: "#C4B5FD",
+      borderColor: "rgba(124,58,237,0.15)",
+      headerBg: "#0A0518",
+      sliderTrack: "rgba(168,85,247,0.15)",
+      sliderFill: "#A855F7",
+      sliderKnob: "#A855F7",
+      statusBar: "light-content",
+    },
+    light: {
+      bg: "#F8F9FA",
+      text: "#2D3748",
+      titleColor: "#1A202C",
+      authorColor: "#7C3AED",
+      borderColor: "#E2E8F0",
+      headerBg: "#FFFFFF",
+      sliderTrack: "#E2E8F0",
+      sliderFill: "#7C3AED",
+      sliderKnob: "#7C3AED",
+      statusBar: "dark-content",
+    },
+    sepia: {
+      bg: "#F4EFE6",
+      text: "#433422",
+      titleColor: "#2C1D11",
+      authorColor: "#B45309",
+      borderColor: "#E7DEC7",
+      headerBg: "#EFE7D4",
+      sliderTrack: "#E7DEC7",
+      sliderFill: "#B45309",
+      sliderKnob: "#B45309",
+      statusBar: "dark-content",
+    },
+  };
+  const T = themes[theme];
+
+  /* ── go to slide (programmatic) ───────────────────────────── */
+  const goToSlide = useCallback((index, animated = true) => {
+    const clamped = Math.max(0, Math.min(index, totalSlides - 1));
+    isScrolling.current = true;
+    setCurrentSlide(clamped);
+    scrollRef.current?.scrollTo({ x: clamped * SCREEN_W, animated });
+    // release lock after scroll is done (~350ms)
+    setTimeout(() => { isScrolling.current = false; }, 350);
+  }, [totalSlides]);
+
+  /* ── detect page after native swipe ─────────────────────── */
+  const onScrollEnd = useCallback((e) => {
+    if (isScrolling.current) return; // was programmatic
+    const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+    setCurrentSlide(Math.max(0, Math.min(idx, totalSlides - 1)));
+  }, [totalSlides]);
+
+  /* ── slider drag ─────────────────────────────────────────── */
+  const handleSliderDrag = useCallback((pageX) => {
+    if (sliderWidth.current <= 0) return;
+    const rel = pageX - sliderPageX.current;
+    const pct = Math.max(0, Math.min(1, rel / sliderWidth.current));
+    const target = Math.round(pct * (totalSlides - 1));
+    // instant jump – no animation for live drag
+    isScrolling.current = true;
+    setCurrentSlide(target);
+    scrollRef.current?.scrollTo({ x: target * SCREEN_W, animated: false });
+    setTimeout(() => { isScrolling.current = false; }, 50);
+  }, [totalSlides]);
+
+  const sliderPan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (_, g) => {
+        sliderRef.current?.measure((x, y, w, h, px) => {
+          sliderPageX.current = px;
+          sliderWidth.current = w;
+          handleSliderDrag(g.x0);
+        });
+      },
+      onPanResponderMove: (_, g) => handleSliderDrag(g.moveX),
+    })
+  ).current;
+
+  /* ── like handler ─────────────────────────────────────────── */
+  const handleLike = async () => {
+    if (isLiking) return;
+    Animated.sequence([
+      Animated.timing(scaleAnim, { toValue: 1.3, duration: 110, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1,   duration: 110, useNativeDriver: true }),
+    ]).start();
+
+    const prev = isLiked, prevCount = likesCount;
+    setIsLiked(!prev);
+    setLikesCount(prev ? Math.max(prevCount - 1, 0) : prevCount + 1);
+    setIsLiking(true);
+
+    try {
+      const res = prev
+        ? await ApiService.unlikeStory(story.story.id)
+        : await ApiService.likeStory(story.story.id);
+      if (!res.success) throw new Error();
+      setIsLiked(res.data.is_liked ?? res.data.has_liked);
+      setLikesCount(res.data.likes_count);
+    } catch {
+      setIsLiked(prev);
+      setLikesCount(prevCount);
+      Alert.alert("Error", "Unable to update like");
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  /* ── render ───────────────────────────────────────────────── */
   return (
-    <View style={styles.container}>
-      <StatusBar hidden={!showControls} />
-      
-      {/* Header Controls */}
+    <View style={[s.root, { backgroundColor: T.bg }]}>
+      <StatusBar barStyle={T.statusBar} hidden={!showControls} />
+
+      {/* ── HEADER ── */}
       {showControls && (
-        <SafeAreaView>
-          <View style={styles.header}>
-            <TouchableOpacity 
-              style={styles.headerButton}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={styles.headerButtonText}>← Back</Text>
+        <SafeAreaView
+          style={[s.header, { backgroundColor: T.headerBg, borderBottomColor: T.borderColor }]}
+          edges={["top"]}
+        >
+          <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+            <Text style={[s.backText, { color: T.authorColor }]}>← Back</Text>
+          </TouchableOpacity>
+
+          <View style={s.headerRight}>
+            {/* Font size */}
+            <TouchableOpacity onPress={() => setFontSize(f => Math.max(14, f - 2))} style={s.fontBtn}>
+              <Text style={[s.fontBtnTxt, { color: T.authorColor }]}>A−</Text>
             </TouchableOpacity>
-            
-            <View style={styles.fontControls}>
-              <TouchableOpacity 
-                style={styles.fontButton}
-                onPress={decreaseFontSize}
-                disabled={fontSize <= 12}
-              >
-                <Text style={styles.fontButtonText}>A-</Text>
-              </TouchableOpacity>
-              <Text style={styles.fontSizeText}>{fontSize}</Text>
-              <TouchableOpacity 
-                style={styles.fontButton}
-                onPress={increaseFontSize}
-                disabled={fontSize >= 24}
-              >
-                <Text style={styles.fontButtonText}>A+</Text>
-              </TouchableOpacity>
+            <Text style={[s.fontVal, { color: T.text }]}>{fontSize}</Text>
+            <TouchableOpacity onPress={() => setFontSize(f => Math.min(26, f + 2))} style={s.fontBtn}>
+              <Text style={[s.fontBtnTxt, { color: T.authorColor }]}>A+</Text>
+            </TouchableOpacity>
+
+            {/* Theme dots */}
+            <View style={s.themePicker}>
+              {[["light", "#F8F9FA", "#CBD5E1"], ["dark", "#0F0A1E", "#7C3AED"], ["sepia", "#F4EFE6", "#B45309"]].map(
+                ([id, bg, border]) => (
+                  <TouchableOpacity
+                    key={id}
+                    onPress={() => setTheme(id)}
+                    style={[
+                      s.themeDot,
+                      { backgroundColor: bg, borderColor: theme === id ? "#A855F7" : border },
+                      theme === id && s.themeDotActive,
+                    ]}
+                  />
+                )
+              )}
             </View>
-          </View>
-          
-          {/* Progress Bar */}
-          <View style={styles.progressBarContainer}>
-            <View style={[styles.progressBar, { width: `${readingProgress * 100}%` }]} />
           </View>
         </SafeAreaView>
       )}
 
-      {/* Story Content */}
+      {/* ── THIN TOP PROGRESS LINE ── */}
+      {showControls && (
+        <View style={[s.topBar, { backgroundColor: T.sliderTrack }]}>
+          <View style={[s.topBarFill, { width: `${readingProgress * 100}%`, backgroundColor: T.sliderFill }]} />
+        </View>
+      )}
+
+      {/* ════════════════════════════════════════════════
+          NATIVE HORIZONTAL SCROLL — single render, no FlatList
+          Each child View is exactly SCREEN_W wide.
+      ════════════════════════════════════════════════ */}
       <ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
+        decelerationRate="fast"
+        onMomentumScrollEnd={onScrollEnd}
+        style={s.pager}
+        contentContainerStyle={{ flexGrow: 0 }}
       >
-        <TouchableOpacity 
-          style={styles.contentContainer}
-          activeOpacity={1}
-          onPress={toggleControls}
-        >
-          {/* Story Title */}
-          <Text style={[styles.storyTitle, { fontSize: fontSize + 8 }]}>
-            {story.title}
-          </Text>
-          
-          <Text style={[styles.storyAuthor, { fontSize: fontSize - 2 }]}>
-            by {story.author?.name}
-          </Text>
-          
-          <View style={styles.divider} />
+        {slides.map((pageText, idx) => (
+          <TouchableOpacity
+            key={idx}
+            activeOpacity={1}
+            onPress={() => setShowControls(v => !v)}
+            style={[s.page, { width: SCREEN_W }]}
+          >
+            {/* Title + author only on first page */}
+            {idx === 0 && (
+              <View style={s.coverHeader}>
+                <Text style={[s.title, { color: T.titleColor }]}>
+                  {story.story.title}
+                </Text>
+                <Text style={[s.author, { color: T.authorColor }]}>
+                  by {story.story.author?.name}
+                </Text>
+                <View style={[s.divider, { backgroundColor: T.borderColor }]} />
+              </View>
+            )}
 
-          {/* Story Content */}
-          {paragraphs.map((paragraph, index) => (
-            <Text 
-              key={index} 
-              style={[styles.paragraph, { fontSize: fontSize }]}
-            >
-              {paragraph.trim()}
+            {/* Text content */}
+            <Text style={[s.bodyText, { fontSize, lineHeight: fontSize * 1.75, color: T.text }]}>
+              {pageText}
             </Text>
-          ))}
 
-          {/* End of Story */}
-          <View style={styles.endSection}>
-            <View style={styles.endDivider} />
-            <Text style={styles.endText}>— End of Story —</Text>
-            <Text style={styles.thankYouText}>
-              Thank you for reading "{story.title}"
-            </Text>
-            
-            <TouchableOpacity 
-              style={styles.backToStoriesButton}
-              onPress={() => navigation.navigate('Home')}
-            >
-              <Text style={styles.backToStoriesButtonText}>Discover More Stories</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
+            {/* End CTA only on last page */}
+            {idx === totalSlides - 1 && (
+              <View style={s.endSection}>
+                <Text style={[s.endLabel, { color: T.authorColor }]}>— End of Story —</Text>
+                <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                  <TouchableOpacity
+                    style={[s.likeCta, isLiked && s.likeCtaActive]}
+                    onPress={handleLike}
+                    disabled={isLiking}
+                  >
+                    <HeartIcon liked={isLiked} size={22} />
+                    <Text style={s.likeCtaTxt}>
+                      {isLiked ? "Liked" : "Like this story"} · {likesCount}
+                    </Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
       </ScrollView>
 
-      {/* Footer Controls */}
+      {/* ── FOOTER ── */}
       {showControls && (
-        <View style={styles.footer}>
-          <Text style={styles.progressText}>
-            {Math.round(readingProgress * 100)}% Complete
-          </Text>
+        <View style={[s.footer, { backgroundColor: T.headerBg, borderTopColor: T.borderColor }]}>
+          {/* Prev */}
+          <TouchableOpacity
+            onPress={() => goToSlide(currentSlide - 1)}
+            disabled={currentSlide === 0}
+            style={s.navBtn}
+          >
+            <Text style={[s.navTxt, { color: T.authorColor }, currentSlide === 0 && s.navDisabled]}>
+              Prev
+            </Text>
+          </TouchableOpacity>
+
+          {/* Slider + page counter */}
+          <View style={s.sliderArea}>
+            <Text style={[s.pageCounter, { color: T.text }]}>
+              {currentSlide + 1} / {totalSlides}
+            </Text>
+
+            {/* Draggable track */}
+            <View
+              ref={sliderRef}
+              collapsable={false}
+              style={s.track}
+              onLayout={e => { sliderWidth.current = e.nativeEvent.layout.width; }}
+              {...sliderPan.panHandlers}
+            >
+              {/* Fill */}
+              <View style={[s.trackBg, { backgroundColor: T.sliderTrack }]}>
+                <View
+                  style={[
+                    s.trackFill,
+                    {
+                      width: `${(currentSlide / Math.max(totalSlides - 1, 1)) * 100}%`,
+                      backgroundColor: T.sliderFill,
+                    },
+                  ]}
+                />
+              </View>
+              {/* Knob */}
+              <View
+                style={[
+                  s.knob,
+                  {
+                    left: `${(currentSlide / Math.max(totalSlides - 1, 1)) * 100}%`,
+                    backgroundColor: T.sliderKnob,
+                    transform: [{ translateX: -10 }],
+                  },
+                ]}
+              />
+            </View>
+          </View>
+
+          {/* Next */}
+          <TouchableOpacity
+            onPress={() => goToSlide(currentSlide + 1)}
+            disabled={currentSlide === totalSlides - 1}
+            style={s.navBtn}
+          >
+            <Text style={[s.navTxt, { color: T.authorColor }, currentSlide === totalSlides - 1 && s.navDisabled]}>
+              Next
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
+export default StoryReaderScreen;
+
+/* ═══════════════════════════════════════════════════════════
+   STYLES
+══════════════════════════════════════════════════════════════ */
+const s = StyleSheet.create({
+  root:       { flex: 1 },
+
+  /* header */
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerButton: {
-    padding: 8,
-  },
-  headerButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  fontControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  fontButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  fontButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  fontSizeText: {
-    fontSize: 14,
-    color: '#666',
-    marginHorizontal: 8,
-  },
-  progressBarContainer: {
-    height: 3,
-    backgroundColor: '#eee',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#007AFF',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  storyTitle: {
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 1.3,
-  },
-  storyAuthor: {
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-    fontStyle: 'italic',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#ddd',
-    marginVertical: 24,
-    marginHorizontal: 40,
-  },
-  paragraph: {
-    lineHeight: 1.6,
-    color: '#333',
-    marginBottom: 20,
-    textAlign: 'justify',
-  },
-  endSection: {
-    alignItems: 'center',
-    marginTop: 40,
-    paddingTop: 24,
-  },
-  endDivider: {
-    height: 2,
-    width: 100,
-    backgroundColor: '#ddd',
-    marginBottom: 20,
-  },
-  endText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 16,
-  },
-  thankYouText: {
-    fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  backToStoriesButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
-  },
-  backToStoriesButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  backButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderBottomWidth: 1,
   },
-  backButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  backBtn:    { paddingVertical: 6, paddingHorizontal: 10, backgroundColor: "rgba(124,58,237,0.08)", borderRadius: 12 },
+  backText:   { fontSize: 14, fontWeight: "700" },
+  headerRight:{ flexDirection: "row", alignItems: "center", gap: 6 },
+  fontBtn:    { width: 30, height: 30, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(124,58,237,0.08)", borderRadius: 8 },
+  fontBtnTxt: { fontSize: 12, fontWeight: "800" },
+  fontVal:    { fontSize: 12, fontWeight: "600", minWidth: 18, textAlign: "center" },
+  themePicker:{ flexDirection: "row", gap: 6, marginLeft: 8, paddingLeft: 8, borderLeftWidth: 1, borderLeftColor: "rgba(124,58,237,0.2)" },
+  themeDot:   { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5 },
+  themeDotActive: { transform: [{ scale: 1.15 }] },
+
+  /* top progress */
+  topBar:     { height: 3, width: "100%" },
+  topBarFill: { height: "100%" },
+
+  /* pages */
+  pager: { flex: 1 },
+  page: {
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 30,
   },
+
+  /* cover on page 0 */
+  coverHeader:{ alignItems: "center", marginBottom: 18 },
+  title:      { fontSize: 22, fontWeight: "800", textAlign: "center", lineHeight: 30, marginBottom: 6 },
+  author:     { fontSize: 13, fontWeight: "600", textAlign: "center", marginBottom: 14 },
+  divider:    { height: 1, width: "35%", borderRadius: 1 },
+
+  /* body */
+  bodyText:   { textAlign: "left", letterSpacing: 0.25 },
+
+  /* end section */
+  endSection: { marginTop: 32, alignItems: "center" },
+  endLabel:   { fontSize: 13, fontWeight: "600", letterSpacing: 1.5, marginBottom: 20 },
+  likeCta: {
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: 12, paddingHorizontal: 24,
+    borderRadius: 24,
+    backgroundColor: "rgba(124,58,237,0.08)",
+    borderWidth: 1, borderColor: "rgba(124,58,237,0.15)",
+  },
+  likeCtaActive:{ backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.2)" },
+  likeCtaTxt: { marginLeft: 8, fontSize: 14, fontWeight: "600", color: "#EF4444" },
+
+  /* footer */
   footer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
   },
-  progressText: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
+  navBtn:     { paddingVertical: 8, paddingHorizontal: 12, backgroundColor: "rgba(124,58,237,0.06)", borderRadius: 10 },
+  navTxt:     { fontSize: 13, fontWeight: "700" },
+  navDisabled:{ opacity: 0.25 },
+
+  /* slider */
+  sliderArea: { flex: 1, alignItems: "center", paddingHorizontal: 8 },
+  pageCounter:{ fontSize: 11, fontWeight: "700", marginBottom: 6 },
+  track:      { width: "100%", height: 24, justifyContent: "center", position: "relative" },
+  trackBg:    { height: 4, borderRadius: 2, overflow: "hidden" },
+  trackFill:  { height: "100%", borderRadius: 2 },
+  knob: {
+    position: "absolute",
+    width: 20, height: 20,
+    borderRadius: 10,
+    top: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
 });
-
-export default StoryReaderScreen;

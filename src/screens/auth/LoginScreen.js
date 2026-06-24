@@ -17,33 +17,38 @@ import { COLORS, FONTS, SPACING } from '../../constants/theme';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import KalamLogo from '../../components/common/KalamLogo';
-
+import { useLanguage } from '../../contexts/LanguageContext';
 const LoginScreen = ({ navigation }) => {
+    const {t}=useLanguage();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState({});
     const { login, loading } = useAuth();
-
     const handleLogin = async () => {
-        // Clear previous errors
-        setErrors({});
+    setErrors({});
 
-        // Basic validation
-        const newErrors = {};
-        if (!email) newErrors.email = 'Email is required';
-        if (!password) newErrors.password = 'Password is required';
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
 
-        if (Object.keys(newErrors).length > 0) {
-            setErrors(newErrors);
-            return;
-        }
-        const result = await login({ email, password });
+    const newErrors = {};
+    if (!trimmedEmail) newErrors.email = t('emailRequired');
+    if (!trimmedPassword) newErrors.password = t('passwordRequired');
 
-        if (!result.success) {
-            // console.log(result);
-            Alert.alert('Login Failed', result.message);
-        }
-    };
+    if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
+    }
+
+    const result = await login({
+        email: trimmedEmail,
+        password: trimmedPassword,
+    });
+
+    if (!result.success) {
+        Alert.alert(t('loginFailed'), result.message);
+    }
+};
+
 
     const fillTestCredentials = (role) => {
         if (role === 'admin') {
@@ -57,10 +62,9 @@ const LoginScreen = ({ navigation }) => {
             setPassword('password');
         }
     };
-
     return (
         <LinearGradient
-            colors={['#6B46C1', '#2D2438', '#1F1B2E']}
+            colors={['#7C3AED', '#2D1B69', '#0F0A1E']}
             style={styles.container}
         >
             <StatusBar style="light" />
@@ -75,14 +79,14 @@ const LoginScreen = ({ navigation }) => {
                     {/* Logo */}
                     {/* <KalamLogo size="large" /> */}
                     <View style={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                        <KalamLogo size="large" />
+                        <KalamLogo size="small" />
                     </View>
 
                     {/* Welcome Text */}
                     <View style={styles.welcomeContainer}>
-                        <Text style={styles.welcomeTitle}>Welcome Back!</Text>
+                        <Text style={styles.welcomeTitle}>{t('welcomeBack')}</Text>
                         <Text style={styles.welcomeSubtitle}>
-                            Sign in to continue your storytelling journey
+                           {t('loginSubtitle')} 
                         </Text>
                     </View>
 
@@ -90,7 +94,7 @@ const LoginScreen = ({ navigation }) => {
                     <View style={styles.formContainer}>
                         <Input
                             label="Email"
-                            placeholder="Enter your email"
+                            placeholder={t('emailPlaceholder')}
                             value={email}
                             onChangeText={setEmail}
                             leftIcon="mail-outline"
@@ -101,7 +105,7 @@ const LoginScreen = ({ navigation }) => {
 
                         <Input
                             label="Password"
-                            placeholder="Enter your password"
+                            placeholder={t('passwordPlaceholder')}
                             value={password}
                             onChangeText={setPassword}
                             leftIcon="lock-closed-outline"
@@ -113,11 +117,11 @@ const LoginScreen = ({ navigation }) => {
                             style={styles.forgotPassword}
                             onPress={() => navigation.navigate('ForgotPassword')}
                         >
-                            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                            <Text style={styles.forgotPasswordText}>{t('forgotPassword')}</Text>
                         </TouchableOpacity>
 
                         <Button
-                            title="Sign In"
+                            title={t('signIn')}
                             onPress={handleLogin}
                             loading={loading}
                             style={styles.loginButton}
@@ -151,9 +155,9 @@ const LoginScreen = ({ navigation }) => {
 
                     {/* Sign Up Link */}
                     <View style={styles.signupContainer}>
-                        <Text style={styles.signupText}>Don't have an account? </Text>
+                        <Text style={styles.signupText}>{t('noAccount')} </Text>
                         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                            <Text style={styles.signupLink}>Sign Up</Text>
+                            <Text style={styles.signupLink}>{t('signUp')}</Text>
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
@@ -163,74 +167,41 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    keyboardView: {
-        flex: 1,
-    },
+    container: { flex: 1 },
+    keyboardView: { flex: 1 },
     scrollContent: {
         flexGrow: 1,
         padding: SPACING.lg,
-        justifyContent: 'center',
+        paddingTop: Platform.OS === 'ios' ? 40 : 20,
+        paddingBottom: 25,
     },
     welcomeContainer: {
         alignItems: 'center',
-        marginBottom: SPACING.xl,
+        marginBottom: SPACING.md,
     },
     welcomeTitle: {
         fontSize: FONTS.sizes.xxl,
-        fontWeight: 'bold',
-        color: COLORS.text.primary,
+        fontWeight: '800',
+        color: '#fff',
         marginBottom: SPACING.xs,
     },
     welcomeSubtitle: {
         fontSize: FONTS.sizes.md,
-        color: COLORS.text.secondary,
+        color: 'rgba(255,255,255,0.6)',
         textAlign: 'center',
         lineHeight: 22,
     },
-    formContainer: {
-        marginBottom: SPACING.xl,
-    },
+    formContainer: { marginBottom: SPACING.md },
     forgotPassword: {
         alignSelf: 'flex-end',
-        marginBottom: SPACING.lg,
+        marginBottom: SPACING.md,
     },
     forgotPasswordText: {
         fontSize: FONTS.sizes.sm,
-        color: COLORS.secondary,
-        fontWeight: '500',
+        color: '#A855F7',
+        fontWeight: '600',
     },
-    loginButton: {
-        marginBottom: SPACING.lg,
-    },
-    testCredentials: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        padding: SPACING.md,
-        borderRadius: 12,
-        alignItems: 'center',
-    },
-    testTitle: {
-        fontSize: FONTS.sizes.sm,
-        color: COLORS.text.secondary,
-        marginBottom: SPACING.sm,
-    },
-    testButtons: {
-        flexDirection: 'row',
-        gap: SPACING.sm,
-    },
-    testButton: {
-        backgroundColor: COLORS.surface,
-        paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.xs,
-        borderRadius: 8,
-    },
-    testButtonText: {
-        fontSize: FONTS.sizes.xs,
-        color: COLORS.text.primary,
-        fontWeight: '500',
-    },
+    loginButton: { marginBottom: SPACING.md },
     signupContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
@@ -238,12 +209,12 @@ const styles = StyleSheet.create({
     },
     signupText: {
         fontSize: FONTS.sizes.md,
-        color: COLORS.text.secondary,
+        color: 'rgba(255,255,255,0.55)',
     },
     signupLink: {
         fontSize: FONTS.sizes.md,
-        color: COLORS.secondary,
-        fontWeight: '600',
+        color: '#A855F7',
+        fontWeight: '700',
     },
 });
 
