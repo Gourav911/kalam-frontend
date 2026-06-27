@@ -2,7 +2,7 @@ const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 
-const SRC = path.join(__dirname, '..', 'appiconnew.png');
+const SRC = path.join(__dirname, '..', 'appicon.png');
 const RES = path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'res');
 
 // Android mipmap sizes: [launcher size, foreground size]
