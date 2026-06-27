@@ -2,8 +2,8 @@
   "expo": {
     "name": "Kalamkaar",
     "slug": "kalam",
-    "version": "1.0.2",
-    "icon": "./appicon.png",
+    "version": "1.0.3",
+    "icon": "./appiconnew.png",
     "plugins": [
       [
         "expo-image-picker",
@@ -23,7 +23,7 @@
       ],
       "package": "com.gourav911.kalam",
       "adaptiveIcon": {
-        "foregroundImage": "./appicons.png",
+        "foregroundImage": "./appiconnew.png",
         "backgroundColor": "#FFFFFF"
       }
     },
