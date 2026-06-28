@@ -148,27 +148,22 @@ const WriterStack = () => {
 // never hides behind the Android system navigation bar (gesture or button).
 const useTabOptions = () => {
   const insets = useSafeAreaInsets();
-  const bottomInset = insets.bottom;
   return {
     headerShown: false,
+    tabBarShowLabel: false,
     tabBarStyle: {
       backgroundColor: '#0A0518',
       borderTopColor: 'rgba(168, 85, 247, 0.15)',
       borderTopWidth: 1,
-      // Add bottom inset so the bar sits above the system nav bar
-      height: (Platform.OS === 'ios' ? 60 : 56) + bottomInset,
-      paddingBottom: (Platform.OS === 'ios' ? 0 : 4) + bottomInset,
+      // DO NOT set fixed height — let React Navigation auto-size it.
+      // Only set paddingBottom to push content above the system nav bar.
+      paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 8 : 6),
       paddingTop: 8,
       elevation: 0,
       shadowOpacity: 0,
     },
     tabBarActiveTintColor: '#A855F7',
     tabBarInactiveTintColor: '#64748B',
-    tabBarLabelStyle: {
-      fontSize: 11,
-      fontWeight: '600',
-      marginTop: 2,
-    },
   };
 };
 
