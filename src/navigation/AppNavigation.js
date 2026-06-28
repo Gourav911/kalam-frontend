@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Import Feather Icons for the clean, professional outline style
 import Feather from 'react-native-vector-icons/Feather';
@@ -143,33 +144,40 @@ const WriterStack = () => {
   );
 };
 
-// Global Configuration for Tab Bars to maintain simplicity & professionalism
-const commonTabOptions = {
-  headerShown: false,
-  tabBarStyle: {
-    backgroundColor: '#0A0518', // Deeper premium dark hue
-    borderTopColor: 'rgba(168, 85, 247, 0.15)', // Highly subtle line separation
-    borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 88 : 72,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-    paddingTop: 8,
-    elevation: 0, 
-    shadowOpacity: 0, // Removed distracting heavy neon shadows
-  },
-  tabBarActiveTintColor: '#A855F7', // Bright focused color
-  tabBarInactiveTintColor: '#64748B', // Muted professional slate color
-  tabBarLabelStyle: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-  },
+// Global Configuration for Tab Bars — uses safe area insets so the bar
+// never hides behind the Android system navigation bar (gesture or button).
+const useTabOptions = () => {
+  const insets = useSafeAreaInsets();
+  const bottomInset = insets.bottom;
+  return {
+    headerShown: false,
+    tabBarStyle: {
+      backgroundColor: '#0A0518',
+      borderTopColor: 'rgba(168, 85, 247, 0.15)',
+      borderTopWidth: 1,
+      // Add bottom inset so the bar sits above the system nav bar
+      height: (Platform.OS === 'ios' ? 60 : 56) + bottomInset,
+      paddingBottom: (Platform.OS === 'ios' ? 0 : 4) + bottomInset,
+      paddingTop: 8,
+      elevation: 0,
+      shadowOpacity: 0,
+    },
+    tabBarActiveTintColor: '#A855F7',
+    tabBarInactiveTintColor: '#64748B',
+    tabBarLabelStyle: {
+      fontSize: 11,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+  };
 };
 
 // Reader Tab Navigation
 const ReaderTabs = () => {
   const { t } = useLanguage();
+  const tabOptions = useTabOptions();
   return (
-    <Tab.Navigator screenOptions={commonTabOptions}>
+    <Tab.Navigator screenOptions={tabOptions}>
       <Tab.Screen
         name="Home"
         component={HomeScreen}
@@ -197,8 +205,9 @@ const ReaderTabs = () => {
 // Writer Tab Navigation
 const WriterTabs = () => {
   const { t } = useLanguage();
+  const tabOptions = useTabOptions();
   return (
-    <Tab.Navigator screenOptions={commonTabOptions}>
+    <Tab.Navigator screenOptions={tabOptions}>
       <Tab.Screen
         name="Home"
         component={HomeScreen}
@@ -242,8 +251,9 @@ const WriterTabs = () => {
 // Admin Tab Navigation
 const AdminTabs = () => {
   const { t } = useLanguage();
+  const tabOptions = useTabOptions();
   return (
-    <Tab.Navigator screenOptions={commonTabOptions}>
+    <Tab.Navigator screenOptions={tabOptions}>
       <Tab.Screen
         name="Home"
         component={HomeScreen}
